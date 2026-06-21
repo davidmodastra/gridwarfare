@@ -1,0 +1,96 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BATTLE ROYALE - FPS Shooter 🎮</title>
+    <link rel="stylesheet" href="venge.io.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="hud">
+            <div id="topLeft" class="hud-panel">
+                <div class="fps-display" id="fps">FPS: 120</div>
+                <div class="stat">KILLS: <span id="kills">0</span></div>
+                <div class="stat">SCORE: <span id="score">0</span></div>
+            </div>
+            <div id="topRight" class="hud-panel">
+                <div class="stat">MAP: BATTLE ROYALE</div>
+                <div class="stat">ENEMIES: <span id="enemyCount">0</span></div>
+                <div class="stat">AMMO: <span id="ammo">1800 / 2500</span></div>
+            </div>
+            <div id="bottomLeft" class="hud-panel">
+                <div class="stat">HP</div>
+                <div id="healthBar"><div id="healthFill"></div></div>
+                <div class="stat" id="healthText">100 / 100</div>
+                <div class="stat">SHIELD</div>
+                <div id="shieldBar"><div id="shieldFill"></div></div>
+            </div>
+            <div id="bottomCenter" class="hud-panel">
+                <div class="stat">USE WASD / MOUSE | 1-4 TO CHANGE WEAPON | RIGHT CLICK TO CYCLE</div>
+                <div class="stat">WEAPON: <span id="weaponType">RIFLE</span></div>
+            </div>
+            <div id="minimap-container">
+                <canvas id="minimap"></canvas>
+            </div>
+        </div>
+        <div id="crosshair">
+            <div class="crosshair-line horizontal"></div>
+            <div class="crosshair-line vertical"></div>
+            <div class="dot"></div>
+            <div class="crosshair-corner corner-tl"></div>
+            <div class="crosshair-corner corner-tr"></div>
+            <div class="crosshair-corner corner-bl"></div>
+            <div class="crosshair-corner corner-br"></div>
+        </div>
+        <div id="gameOver">
+            <h1>⚠️ GAME OVER ⚠️</h1>
+            <p id="finalScore">FINAL SCORE: 0</p>
+            <p id="enemiesKilled">TOTAL KILLS: 0</p>
+            <button id="playAgain">PLAY AGAIN</button>
+        </div>
+        <div id="settingsMenu" class="settings-overlay">
+            <div class="settings-container">
+                <h2>⚙️ CONFIGURACIÓN</h2>
+                <div class="settings-group">
+                    <label for="difficulty">Dificultad</label>
+                    <select id="difficulty">
+                        <option value="easy">FÁCIL</option>
+                        <option value="normal" selected>NORMAL</option>
+                        <option value="hard">DIFÍCIL</option>
+                        <option value="nightmare">PESADILLA</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label for="sensitivity">Sensibilidad del Ratón</label>
+                    <input type="range" id="sensitivity" min="0.5" max="2" step="0.1" value="1">
+                    <span id="sensitivityValue">1.0x</span>
+                </div>
+                <div class="settings-group">
+                    <label for="quality">Calidad Gráfica</label>
+                    <select id="quality">
+                        <option value="low">BAJA</option>
+                        <option value="medium" selected>MEDIA</option>
+                        <option value="high">ALTA</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label for="particles">Partículas</label>
+                    <input type="checkbox" id="particles" checked>
+                </div>
+                <div class="settings-group">
+                    <label for="fullscreen">Pantalla Completa</label>
+                    <input type="checkbox" id="fullscreen">
+                </div>
+                <div class="button-row">
+                    <button id="applySettings" class="btn-apply">GUARDAR</button>
+                    <button id="closeSettings" class="btn-close">CERRAR</button>
+                </div>
+            </div>
+        </div>
+        <button id="settingsBtn" class="settings-btn">⚙️</button>
+    </div>
+    <script src="venge.io.js"></script>
+</body>
+</html>
