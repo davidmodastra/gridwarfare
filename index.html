@@ -2,13 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>BATTLE ROYALE - FPS Shooter 🎮</title>
     <link rel="stylesheet" href="venge.io.css">
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+
+        <!-- CONTROLES TÁCTILES PARA MÓVIL -->
+        <div id="touchControls" class="touch-controls">
+            <div class="joystick-container">
+                <div class="joystick-base"></div>
+                <div class="joystick-stick" id="joystickStick"></div>
+            </div>
+            <div class="touch-buttons">
+                <button id="fireButton" class="touch-button fire-button">🔫</button>
+                <button id="cycleWeaponButton" class="touch-button cycle-button">🔄</button>
+            </div>
+        </div>
+
         <div id="hud">
             <div id="topLeft" class="hud-panel">
                 <div class="fps-display" id="fps">FPS: 120</div>
@@ -27,8 +40,9 @@
                 <div class="stat">SHIELD</div>
                 <div id="shieldBar"><div id="shieldFill"></div></div>
             </div>
-            <div id="bottomCenter" class="hud">
-                <div class="stat">USE WASD / MOUSE | 1-4 TO CHANGE WEAPON | RIGHT CLICK TO CYCLE</div>
+            <div id="bottomCenter" class="hud-panel">
+                <div class="stat" id="controlModeText">CONTROLES: TECLADO</div>
+                <div class="stat">USE WASD / MOUSE | 1-4 WEAPON | RIGHT CLICK CYCLE</div>
                 <div class="stat">WEAPON: <span id="weaponType">RIFLE</span></div>
             </div>
             <div id="minimap-container">
@@ -52,40 +66,47 @@
         </div>
         <div id="settingsMenu" class="settings-overlay">
             <div class="settings-container">
-                <h2>⚙️ SETTINGS</h2>
+                <h2>⚙️ CONFIGURACIÓN</h2>
                 <div class="settings-group">
-                    <label for="difficulty">Difficulty</label>
-                    <select id="difficulty">
-                        <option value="easy">EASY</option>
-                        <option value="normal" selected>NORMAL</option>
-                        <option value="hard">HARD</option>
-                        <option value="nightmare">NIGHTMARE</option>
+                    <label for="controlMode">Modo de Control</label>
+                    <select id="controlMode">
+                        <option value="keyboard" selected>TECLADO (PC)</option>
+                        <option value="touch">TÁCTIL (MÓVIL)</option>
                     </select>
                 </div>
                 <div class="settings-group">
-                    <label for="sensitivity">Mouse Sensitivity</label>
+                    <label for="difficulty">Dificultad</label>
+                    <select id="difficulty">
+                        <option value="easy">FÁCIL</option>
+                        <option value="normal" selected>NORMAL</option>
+                        <option value="hard">DIFÍCIL</option>
+                        <option value="nightmare">PESADILLA</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label for="sensitivity">Sensibilidad del Ratón</label>
                     <input type="range" id="sensitivity" min="0.5" max="2" step="0.1" value="1">
                     <span id="sensitivityValue">1.0x</span>
                 </div>
                 <div class="settings-group">
-                    <label for="quality">Graphics Quality</label>
+                    <label for="quality">Calidad Gráfica</label>
                     <select id="quality">
-                        <option value="low">LOW</option>
-                        <option value="medium" selected>MEDIUM</option>
-                        <option value="high">HIGH</option>
+                        <option value="low">BAJA</option>
+                        <option value="medium" selected>MEDIA</option>
+                        <option value="high">ALTA</option>
                     </select>
                 </div>
                 <div class="settings-group">
-                    <label for="particles">Particles</label>
+                    <label for="particles">Partículas</label>
                     <input type="checkbox" id="particles" checked>
                 </div>
                 <div class="settings-group">
-                    <label for="fullscreen">Fullscreen</label>
+                    <label for="fullscreen">Pantalla Completa</label>
                     <input type="checkbox" id="fullscreen">
                 </div>
                 <div class="button-row">
-                    <button id="applySettings" class="btn-apply">SAVE</button>
-                    <button id="closeSettings" class="btn-close">CLOSE</button>
+                    <button id="applySettings" class="btn-apply">GUARDAR</button>
+                    <button id="closeSettings" class="btn-close">CERRAR</button>
                 </div>
             </div>
         </div>
