@@ -185,6 +185,13 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
     color: #eaffc9;
     text-align: center;
 }
+
+.settings-container h3 {
+    margin-bottom: 14px;
+    font-size: 18px;
+    color: #b8ffd5;
+    text-align: left;
+}
 .settings-group { margin-bottom: 18px; }
 .settings-group label {
     display: block;
