@@ -27,7 +27,7 @@
                 <div class="stat">SHIELD</div>
                 <div id="shieldBar"><div id="shieldFill"></div></div>
             </div>
-            <div id="bottomCenter" class="hud-panel">
+            <div id="bottomCenter" class="hud">
                 <div class="stat">USE WASD / MOUSE | 1-4 TO CHANGE WEAPON | RIGHT CLICK TO CYCLE</div>
                 <div class="stat">WEAPON: <span id="weaponType">RIFLE</span></div>
             </div>
@@ -52,40 +52,40 @@
         </div>
         <div id="settingsMenu" class="settings-overlay">
             <div class="settings-container">
-                <h2>⚙️ CONFIGURACIÓN</h2>
+                <h2>⚙️ SETTINGS</h2>
                 <div class="settings-group">
-                    <label for="difficulty">Dificultad</label>
+                    <label for="difficulty">Difficulty</label>
                     <select id="difficulty">
-                        <option value="easy">FÁCIL</option>
+                        <option value="easy">EASY</option>
                         <option value="normal" selected>NORMAL</option>
-                        <option value="hard">DIFÍCIL</option>
-                        <option value="nightmare">PESADILLA</option>
+                        <option value="hard">HARD</option>
+                        <option value="nightmare">NIGHTMARE</option>
                     </select>
                 </div>
                 <div class="settings-group">
-                    <label for="sensitivity">Sensibilidad del Ratón</label>
+                    <label for="sensitivity">Mouse Sensitivity</label>
                     <input type="range" id="sensitivity" min="0.5" max="2" step="0.1" value="1">
                     <span id="sensitivityValue">1.0x</span>
                 </div>
                 <div class="settings-group">
-                    <label for="quality">Calidad Gráfica</label>
+                    <label for="quality">Graphics Quality</label>
                     <select id="quality">
-                        <option value="low">BAJA</option>
-                        <option value="medium" selected>MEDIA</option>
-                        <option value="high">ALTA</option>
+                        <option value="low">LOW</option>
+                        <option value="medium" selected>MEDIUM</option>
+                        <option value="high">HIGH</option>
                     </select>
                 </div>
                 <div class="settings-group">
-                    <label for="particles">Partículas</label>
+                    <label for="particles">Particles</label>
                     <input type="checkbox" id="particles" checked>
                 </div>
                 <div class="settings-group">
-                    <label for="fullscreen">Pantalla Completa</label>
+                    <label for="fullscreen">Fullscreen</label>
                     <input type="checkbox" id="fullscreen">
                 </div>
                 <div class="button-row">
-                    <button id="applySettings" class="btn-apply">GUARDAR</button>
-                    <button id="closeSettings" class="btn-close">CERRAR</button>
+                    <button id="applySettings" class="btn-apply">SAVE</button>
+                    <button id="closeSettings" class="btn-close">CLOSE</button>
                 </div>
             </div>
         </div>
