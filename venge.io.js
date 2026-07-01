@@ -1,4 +1,13 @@
-﻿const CONFIG = { MAP_WIDTH: 3200, MAP_HEIGHT: 2400, MAX_ENEMIES: 14, BUILDING_COUNT: 42, TREE_COUNT: 120, WATER_COUNT: 6, ROAD_COUNT: 5 };
+﻿const CONFIG = {
+    MAP_WIDTH: 4800,
+    MAP_HEIGHT: 3600,
+    MAX_ENEMIES: 24,
+    BUILDING_COUNT: 72,
+    TREE_COUNT: 260,
+    WATER_COUNT: 10,
+    ROAD_COUNT: 8,
+    DRAW_MARGIN: 220
+};
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const minimapCanvas = document.getElementById('minimap');
@@ -10,10 +19,16 @@ minimapCanvas.height = 160;
 let frameCount = 0;
 let lastTime = performance.now();
 let fps = 0;
+let fpsTimer = 0;
 const keys = {};
 let gameActive = true;
 const settings = { difficulty: 'normal', sensitivity: 1.0, quality: 'medium', particles: true, fullscreen: false, controlMode: 'keyboard' };
-const player = { x: CONFIG.MAP_WIDTH / 2, y: CONFIG.MAP_HEIGHT / 2, width: 26, height: 26, speed: 6, health: 100, maxHealth: 100, shield: 55, maxShield: 55, ammo: 1800, maxAmmo: 2500, reserve: 90, score: 0, kills: 0, angle: 0, weapon: 'rifle', vx: 0, vy: 0 };
+const player = { x: 0, y: 0, width: 26, height: 26, speed: 6, health: 100, maxHealth: 100, shield: 55, maxShield: 55, ammo: 1800, maxAmmo: 2500, reserve: 90, score: 0, kills: 0, angle: 0, weapon: 'rifle', vx: 0, vy: 0 };
+function resetPlayerPosition() {
+    player.x = CONFIG.MAP_WIDTH / 2;
+    player.y = CONFIG.MAP_HEIGHT / 2;
+}
+resetPlayerPosition();
 const weapons = { rifle: { damage: 80, fireRate: 110, spread: 0.04, speed: 10, ammo: 1800 }, shotgun: { damage: 32, fireRate: 520, spread: 0.38, speed: 8, ammo: 8 }, sniper: { damage: 98, fireRate: 1250, spread: 0, speed: 14, ammo: 5 }, pistol: { damage: 16, fireRate: 70, spread: 0.12, speed: 9, ammo: 20 } };
 const bullets = [];
 const buildings = [];
@@ -23,6 +38,7 @@ const trees = [];
 const lakes = [];
 const roads = [];
 const explosions = [];
+let zones = [];
 let lastShot = 0;
 let spawnCounter = 0;
 let crosshair = document.getElementById('crosshair');
@@ -46,6 +62,43 @@ let joystickY = 0;
 
 function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
 function randRange(min, max) { return Math.random() * (max - min) + min; }
+function buildZones() {
+    zones = [
+        {
+            name: 'FOREST EDGE',
+            x: CONFIG.MAP_WIDTH * 0.24,
+            y: CONFIG.MAP_HEIGHT * 0.22,
+            radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.16,
+            color: 'rgba(92, 170, 84, 0.16)',
+            enemyBias: { basic: 0.55, fast: 0.2, tank: 0.1, elite: 0.15 }
+        },
+        {
+            name: 'CITY CORE',
+            x: CONFIG.MAP_WIDTH * 0.58,
+            y: CONFIG.MAP_HEIGHT * 0.58,
+            radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.18,
+            color: 'rgba(255, 197, 88, 0.14)',
+            enemyBias: { basic: 0.4, fast: 0.25, tank: 0.2, elite: 0.15 }
+        },
+        {
+            name: 'SWAMP BAY',
+            x: CONFIG.MAP_WIDTH * 0.8,
+            y: CONFIG.MAP_HEIGHT * 0.24,
+            radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.16,
+            color: 'rgba(67, 122, 184, 0.16)',
+            enemyBias: { basic: 0.35, fast: 0.2, tank: 0.25, elite: 0.2 }
+        }
+    ];
+}
+function getCurrentZone(x = player.x, y = player.y) {
+    return zones.find(zone => Math.hypot(x - zone.x, y - zone.y) <= zone.radius) || null;
+}
+function isOnScreen(x, y, width = 0, height = 0, cameraX, cameraY, margin = CONFIG.DRAW_MARGIN) {
+    const sx = x - cameraX + canvas.width / 2;
+    const sy = y - cameraY + canvas.height / 2;
+    return sx + width / 2 + margin >= 0 && sx - width / 2 - margin <= canvas.width &&
+           sy + height / 2 + margin >= 0 && sy - height / 2 - margin <= canvas.height;
+}
 
 // Inicializar joystick
 function initJoystick() {
@@ -215,13 +268,14 @@ class Enemy {
         this.x = x; this.y = y; this.w = 24; this.h = 24; this.type = type;
         this.shootCooldown = 0;
         const types = {
-            basic: { color: '#f55a4d', speed: 2.6, health: 42, damage: 18 },
-            fast: { color: '#f7b24f', speed: 4.1, health: 28, damage: 12 },
-            tank: { color: '#d0365c', speed: 1.6, health: 80, damage: 22 }
+            basic: { color: '#f55a4d', speed: 2.6, health: 42, damage: 18, reward: 120 },
+            fast: { color: '#f7b24f', speed: 4.1, health: 28, damage: 12, reward: 90 },
+            tank: { color: '#d0365c', speed: 1.6, health: 80, damage: 22, reward: 180 },
+            elite: { color: '#9a4eff', speed: 3.2, health: 64, damage: 26, reward: 220 }
         };
         const data = types[type] || types.basic;
         this.color = data.color; this.speed = data.speed; this.health = data.health;
-        this.maxHealth = data.health; this.damage = data.damage;
+        this.maxHealth = data.health; this.damage = data.damage; this.reward = data.reward;
         this.vx = 0; this.vy = 0;
     }
     update() {
@@ -299,15 +353,25 @@ function generateEnvironment() {
 }
 
 function spawnEnemy() {
+    const zone = getCurrentZone(player.x, player.y) || zones[Math.floor(Math.random() * zones.length)] || null;
     const edge = Math.floor(Math.random() * 4);
     let x = player.x; let y = player.y;
-    const distance = 480;
+    const distance = zone ? 620 : 480;
     if (edge === 0) { x = clamp(player.x + randRange(-distance, distance), 60, CONFIG.MAP_WIDTH - 60); y = player.y - distance; }
     if (edge === 1) { x = player.x + distance; y = clamp(player.y + randRange(-distance, distance), 60, CONFIG.MAP_HEIGHT - 60); }
     if (edge === 2) { x = clamp(player.x + randRange(-distance, distance), 60, CONFIG.MAP_WIDTH - 60); y = player.y + distance; }
     if (edge === 3) { x = player.x - distance; y = clamp(player.y + randRange(-distance, distance), 60, CONFIG.MAP_HEIGHT - 60); }
-    const typeRoll = Math.random();
-    const type = typeRoll < 0.55 ? 'basic' : typeRoll < 0.82 ? 'fast' : 'tank';
+    const bias = zone ? zone.enemyBias : { basic: 0.55, fast: 0.2, tank: 0.15, elite: 0.1 };
+    const roll = Math.random();
+    let type = 'basic';
+    let cumulative = 0;
+    for (const [name, weight] of Object.entries(bias)) {
+        cumulative += weight;
+        if (roll < cumulative) {
+            type = name;
+            break;
+        }
+    }
     enemies.push(new Enemy(clamp(x, 45, CONFIG.MAP_WIDTH - 45), clamp(y, 45, CONFIG.MAP_HEIGHT - 45), type));
 }
 
@@ -395,7 +459,7 @@ function updateBullets() {
                 if (e.health <= 0) {
                     enemies.splice(j, 1);
                     player.kills++;
-                    player.score += 150;
+                    player.score += e.reward || 150;
                     player.health = clamp(player.health + 8, 0, player.maxHealth);
                     explosions.push(new Explosion(e.x, e.y, 1.1));
                 }
@@ -438,7 +502,24 @@ function drawMap(cameraX, cameraY) {
     ctx.fillStyle = '#112a18';
     ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
 
+    for (const zone of zones) {
+        if (!isOnScreen(zone.x, zone.y, zone.radius * 2, zone.radius * 2, cameraX, cameraY, 120)) continue;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2);
+        ctx.fillStyle = zone.color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.font = 'bold 16px Segoe UI';
+        ctx.fillText(zone.name, zone.x - zone.radius * 0.7, zone.y - zone.radius - 10);
+        ctx.restore();
+    }
+
     for (const road of roads) {
+        if (!isOnScreen(road.x + road.w / 2, road.y + road.h / 2, road.w, road.h, cameraX, cameraY, 120)) continue;
         ctx.fillStyle = '#2e3f35';
         ctx.fillRect(road.x, road.y, road.w, road.h);
         ctx.strokeStyle = '#94ffb3';
@@ -457,6 +538,7 @@ function drawMap(cameraX, cameraY) {
     }
 
     for (const lake of lakes) {
+        if (!isOnScreen(lake.x, lake.y, lake.w, lake.h, cameraX, cameraY, 140)) continue;
         ctx.fillStyle = 'rgba(31, 100, 190, 0.8)';
         ctx.beginPath();
         ctx.ellipse(lake.x, lake.y, lake.w, lake.h, 0, 0, Math.PI * 2);
@@ -467,6 +549,7 @@ function drawMap(cameraX, cameraY) {
     }
 
     for (const tree of trees) {
+        if (!isOnScreen(tree.x, tree.y, tree.size * 1.8, tree.size * 1.8, cameraX, cameraY, 60)) continue;
         ctx.fillStyle = '#2b4f1b';
         ctx.beginPath();
         ctx.arc(tree.x, tree.y, tree.size, 0, Math.PI * 2);
@@ -493,11 +576,17 @@ function drawMap(cameraX, cameraY) {
 }
 
 function drawBuildings(cameraX, cameraY) {
-    for (const building of buildings) building.draw(ctx, cameraX, cameraY);
+    for (const building of buildings) {
+        if (!isOnScreen(building.x, building.y, building.w, building.h, cameraX, cameraY, 80)) continue;
+        building.draw(ctx, cameraX, cameraY);
+    }
 }
 
 function drawEnemies(cameraX, cameraY) {
-    for (const enemy of enemies) enemy.draw(ctx, cameraX, cameraY);
+    for (const enemy of enemies) {
+        if (!isOnScreen(enemy.x, enemy.y, enemy.w, enemy.h, cameraX, cameraY, 80)) continue;
+        enemy.draw(ctx, cameraX, cameraY);
+    }
 }
 
 function drawBullets(cameraX, cameraY) {
@@ -563,6 +652,8 @@ function updateHUD() {
     document.getElementById('enemyCount').textContent = enemies.length;
     document.getElementById('ammo').textContent = `${player.ammo} / ${player.reserve}`;
     document.getElementById('weaponType').textContent = player.weapon.toUpperCase();
+    const currentZone = getCurrentZone();
+    document.getElementById('zoneText').textContent = `ZONE: ${currentZone ? currentZone.name.toUpperCase() : 'OPEN FIELD'}`;
     document.getElementById('healthFill').style.width = `${(player.health / player.maxHealth) * 100}%`;
     document.getElementById('shieldFill').style.width = `${(player.shield / player.maxShield) * 100}%`;
     document.getElementById('healthText').textContent = `${Math.max(0, Math.round(player.health))} / ${player.maxHealth}`;
@@ -585,6 +676,16 @@ function loadSettings() {
         if (!['keyboard', 'touch'].includes(settings.controlMode)) {
             settings.controlMode = 'keyboard';
         }
+    } catch (e) {}
+}
+
+async function loadRuntimeConfig() {
+    try {
+        const response = await fetch('map_config.json');
+        if (!response.ok) return;
+        const loaded = await response.json();
+        Object.assign(CONFIG, loaded);
+        resetPlayerPosition();
     } catch (e) {}
 }
 
@@ -617,8 +718,10 @@ function cycleWeapon() {
 }
 
 // MODIFICADA: init con inicialización de controles táctiles
-function init() {
+async function init() {
     loadSettings();
+    buildZones();
+    await loadRuntimeConfig();
     syncSettingsUI();
 
     // Inicializar joystick
@@ -674,8 +777,11 @@ function gameLoop(time) {
     const delta = time - lastTime;
     lastTime = time;
     frameCount++;
-    if (time >= lastTime + 1000) {
-        fps = Math.round(1000 / Math.max(delta, 1));
+    fpsTimer += delta;
+    if (fpsTimer >= 1000) {
+        fps = Math.round((frameCount * 1000) / fpsTimer);
+        frameCount = 0;
+        fpsTimer = 0;
     }
 
     if (gameActive) {
@@ -807,8 +913,7 @@ document.getElementById('fullscreen').addEventListener('change', (e) => {
 });
 
 document.getElementById('playAgain').addEventListener('click', () => {
-    player.x = CONFIG.MAP_WIDTH / 2;
-    player.y = CONFIG.MAP_HEIGHT / 2;
+    resetPlayerPosition();
     player.health = 100;
     player.shield = 55;
     player.ammo = 1800;
