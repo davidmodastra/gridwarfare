@@ -70,7 +70,10 @@ function buildZones() {
             y: CONFIG.MAP_HEIGHT * 0.22,
             radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.16,
             color: 'rgba(92, 170, 84, 0.16)',
-            enemyBias: { basic: 0.55, fast: 0.2, tank: 0.1, elite: 0.15 }
+            enemyBias: { basic: 0.55, fast: 0.2, tank: 0.1, elite: 0.15 },
+            bossChance: 0.14,
+            bossActive: false,
+            effect: 'HEAL +0.04 HP/s'
         },
         {
             name: 'CITY CORE',
@@ -78,7 +81,10 @@ function buildZones() {
             y: CONFIG.MAP_HEIGHT * 0.58,
             radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.18,
             color: 'rgba(255, 197, 88, 0.14)',
-            enemyBias: { basic: 0.4, fast: 0.25, tank: 0.2, elite: 0.15 }
+            enemyBias: { basic: 0.4, fast: 0.25, tank: 0.2, elite: 0.15 },
+            bossChance: 0.18,
+            bossActive: false,
+            effect: 'DAMAGE +10%'
         },
         {
             name: 'SWAMP BAY',
@@ -86,12 +92,34 @@ function buildZones() {
             y: CONFIG.MAP_HEIGHT * 0.24,
             radius: Math.min(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT) * 0.16,
             color: 'rgba(67, 122, 184, 0.16)',
-            enemyBias: { basic: 0.35, fast: 0.2, tank: 0.25, elite: 0.2 }
+            enemyBias: { basic: 0.35, fast: 0.2, tank: 0.25, elite: 0.2 },
+            bossChance: 0.16,
+            bossActive: false,
+            effect: 'SHIELD +0.04/s'
         }
     ];
 }
 function getCurrentZone(x = player.x, y = player.y) {
     return zones.find(zone => Math.hypot(x - zone.x, y - zone.y) <= zone.radius) || null;
+}
+function trySpawnZoneBoss(zone) {
+    if (!zone || zone.bossActive || Math.random() > zone.bossChance) return false;
+    const boss = new Enemy(zone.x + randRange(-120, 120), zone.y + randRange(-120, 120), 'boss');
+    boss.isBoss = true;
+    boss.zoneName = zone.name;
+    enemies.push(boss);
+    zone.bossActive = true;
+    return true;
+}
+function applyZoneEffects(zone = getCurrentZone()) {
+    if (!zone) return;
+    if (zone.name === 'FOREST EDGE') {
+        player.health = clamp(player.health + 0.04, 0, player.maxHealth);
+    } else if (zone.name === 'CITY CORE') {
+        player.shield = clamp(player.shield + 0.02, 0, player.maxShield);
+    } else if (zone.name === 'SWAMP BAY') {
+        player.shield = clamp(player.shield + 0.04, 0, player.maxShield);
+    }
 }
 function isOnScreen(x, y, width = 0, height = 0, cameraX, cameraY, margin = CONFIG.DRAW_MARGIN) {
     const sx = x - cameraX + canvas.width / 2;
@@ -303,6 +331,12 @@ class Enemy {
         if (sx + this.w / 2 < 0 || sx - this.w / 2 > canvas.width || sy + this.h / 2 < 0 || sy - this.h / 2 > canvas.height) return;
         cx.fillStyle = this.color;
         cx.fillRect(sx - this.w / 2, sy - this.h / 2, this.w, this.h);
+        if (this.isBoss) {
+            cx.fillStyle = '#ffd166';
+            cx.fillRect(sx - this.w / 2 - 6, sy - this.h / 2 - 8, this.w + 12, 5);
+            cx.fillStyle = '#ff5d73';
+            cx.fillRect(sx - this.w / 2 - 6, sy - this.h / 2 - 8, ((this.health / this.maxHealth) * (this.w + 12)), 5);
+        }
         cx.strokeStyle = '#0a0a0a';
         cx.lineWidth = 2;
         cx.strokeRect(sx - this.w / 2, sy - this.h / 2, this.w, this.h);
@@ -354,6 +388,10 @@ function generateEnvironment() {
 
 function spawnEnemy() {
     const zone = getCurrentZone(player.x, player.y) || zones[Math.floor(Math.random() * zones.length)] || null;
+    if (zone && !zone.bossActive && Math.random() < zone.bossChance) {
+        trySpawnZoneBoss(zone);
+        return;
+    }
     const edge = Math.floor(Math.random() * 4);
     let x = player.x; let y = player.y;
     const distance = zone ? 620 : 480;
@@ -382,6 +420,8 @@ function fireWeapon() {
     if (now - lastShot < weapon.fireRate) return;
     lastShot = now;
     const bulletsCount = player.weapon === 'shotgun' ? 8 : 1;
+    const zone = getCurrentZone();
+    const damageMultiplier = zone && zone.name === 'CITY CORE' ? 1.1 : 1;
     for (let i = 0; i < bulletsCount; i++) {
         const spread = player.weapon === 'sniper' ? 0 : randRange(-weapon.spread, weapon.spread);
         const angle = player.angle + spread;
@@ -390,7 +430,7 @@ function fireWeapon() {
             y: player.y + Math.sin(angle) * 30,
             vx: Math.cos(angle) * weapon.speed,
             vy: Math.sin(angle) * weapon.speed,
-            damage: weapon.damage,
+            damage: weapon.damage * damageMultiplier,
             life: 280
         });
     }
@@ -410,17 +450,21 @@ function updatePlayer() {
     player.vx = 0;
     player.vy = 0;
 
+    const zone = getCurrentZone();
+    let movementSpeed = player.speed;
+    if (zone && zone.name === 'CITY CORE') movementSpeed += 0.6;
+    if (zone && zone.name === 'SWAMP BAY') movementSpeed -= 0.4;
+
     if (controlMode === 'keyboard') {
-        if (keys['w']) player.vy -= player.speed;
-        if (keys['s']) player.vy += player.speed;
-        if (keys['a']) player.vx -= player.speed;
-        if (keys['d']) player.vx += player.speed;
+        if (keys['w']) player.vy -= movementSpeed;
+        if (keys['s']) player.vy += movementSpeed;
+        if (keys['a']) player.vx -= movementSpeed;
+        if (keys['d']) player.vx += movementSpeed;
     } else if (controlMode === 'touch' && joystickActive) {
-        const speed = player.speed;
         const normalizedX = joystickX / joystickRadius;
         const normalizedY = joystickY / joystickRadius;
-        player.vx = normalizedX * speed;
-        player.vy = normalizedY * speed;
+        player.vx = normalizedX * movementSpeed;
+        player.vy = normalizedY * movementSpeed;
     }
 
     player.x += player.vx;
@@ -437,6 +481,8 @@ function updatePlayer() {
             player.y -= player.vy;
         }
     }
+
+    applyZoneEffects(zone);
 
     if (player.health <= 0) endGame();
 }
@@ -461,7 +507,11 @@ function updateBullets() {
                     player.kills++;
                     player.score += e.reward || 150;
                     player.health = clamp(player.health + 8, 0, player.maxHealth);
-                    explosions.push(new Explosion(e.x, e.y, 1.1));
+                    if (e.isBoss) {
+                        const bossZone = zones.find(zone => zone.name === e.zoneName);
+                        if (bossZone) bossZone.bossActive = false;
+                    }
+                    explosions.push(new Explosion(e.x, e.y, e.isBoss ? 1.5 : 1.1));
                 }
                 break;
             }
@@ -637,11 +687,21 @@ function drawMinimap(cameraX, cameraY) {
     for (const building of buildings) {
         minimapCtx.fillRect((building.x - building.w / 2) * scaleX, (building.y - building.h / 2) * scaleY, building.w * scaleX, building.h * scaleY);
     }
+    for (const zone of zones) {
+        minimapCtx.strokeStyle = 'rgba(255,255,255,0.28)';
+        minimapCtx.lineWidth = 1;
+        minimapCtx.beginPath();
+        minimapCtx.arc(zone.x * scaleX, zone.y * scaleY, zone.radius * scaleX, 0, Math.PI * 2);
+        minimapCtx.stroke();
+        minimapCtx.fillStyle = 'rgba(255,255,255,0.72)';
+        minimapCtx.fillRect(zone.x * scaleX - 2, zone.y * scaleY - 2, 4, 4);
+    }
     minimapCtx.fillStyle = '#fa5f5f';
     minimapCtx.fillRect(player.x * scaleX - 3, player.y * scaleY - 3, 6, 6);
     minimapCtx.fillStyle = '#ffcb42';
     for (const enemy of enemies) {
-        minimapCtx.fillRect(enemy.x * scaleX - 2, enemy.y * scaleY - 2, 4, 4);
+        const size = enemy.isBoss ? 6 : 4;
+        minimapCtx.fillRect(enemy.x * scaleX - size / 2, enemy.y * scaleY - size / 2, size, size);
     }
 }
 
@@ -654,6 +714,7 @@ function updateHUD() {
     document.getElementById('weaponType').textContent = player.weapon.toUpperCase();
     const currentZone = getCurrentZone();
     document.getElementById('zoneText').textContent = `ZONE: ${currentZone ? currentZone.name.toUpperCase() : 'OPEN FIELD'}`;
+    document.getElementById('zoneEffectText').textContent = `EFFECT: ${currentZone ? currentZone.effect : 'NONE'}`;
     document.getElementById('healthFill').style.width = `${(player.health / player.maxHealth) * 100}%`;
     document.getElementById('shieldFill').style.width = `${(player.shield / player.maxShield) * 100}%`;
     document.getElementById('healthText').textContent = `${Math.max(0, Math.round(player.health))} / ${player.maxHealth}`;
@@ -685,6 +746,7 @@ async function loadRuntimeConfig() {
         if (!response.ok) return;
         const loaded = await response.json();
         Object.assign(CONFIG, loaded);
+        buildZones();
         resetPlayerPosition();
     } catch (e) {}
 }
@@ -733,7 +795,7 @@ async function init() {
 
     generateBuildings();
     generateEnvironment();
-    for (let i = 0; i < 3; i++) spawnEnemy();
+    for (let i = 0; i < 15; i++) spawnEnemy();
 
     // Registrar eventos de teclado
     window.addEventListener('keydown', handleKeyDown);
