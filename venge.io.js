@@ -42,6 +42,13 @@ let zones = [];
 let lastShot = 0;
 let spawnCounter = 0;
 let crosshair = document.getElementById('crosshair');
+let currentRound = 0;
+const TOTAL_ROUNDS = 10;
+const ROUND_ENEMIES = 16;
+let roundKillsThisRound = 0;
+let roundBannerTimer = 0;
+let roundTransitionTimer = 0;
+const roundBanner = document.getElementById('roundBanner');
 
 // === CONTROLES TÁCTILES ===
 let controlMode = 'keyboard';
@@ -126,6 +133,40 @@ function isOnScreen(x, y, width = 0, height = 0, cameraX, cameraY, margin = CONF
     const sy = y - cameraY + canvas.height / 2;
     return sx + width / 2 + margin >= 0 && sx - width / 2 - margin <= canvas.width &&
            sy + height / 2 + margin >= 0 && sy - height / 2 - margin <= canvas.height;
+}
+
+function showRoundBanner(text, duration = 1400) {
+    if (!roundBanner) return;
+    roundBanner.textContent = text;
+    roundBanner.classList.add('show');
+    roundBannerTimer = duration;
+}
+
+function updateRoundBanner(delta) {
+    if (!roundBanner) return;
+    if (roundBannerTimer > 0) {
+        roundBannerTimer -= delta;
+        if (roundBannerTimer <= 0) roundBanner.classList.remove('show');
+    }
+}
+
+function startRound() {
+    if (currentRound >= TOTAL_ROUNDS) {
+        showRoundBanner('VICTORY!', 3000);
+        gameActive = false;
+        return;
+    }
+    currentRound += 1;
+    roundKillsThisRound = 0;
+    roundTransitionTimer = 0;
+    enemies.length = 0;
+    bullets.length = 0;
+    particles.length = 0;
+    explosions.length = 0;
+    document.getElementById('gameOver').classList.remove('active');
+    showRoundBanner(`ROUND ${currentRound}`, 1400);
+    for (let i = 0; i < ROUND_ENEMIES; i++) spawnEnemy(false);
+    gameActive = true;
 }
 
 // Inicializar joystick
@@ -386,9 +427,9 @@ function generateEnvironment() {
     }
 }
 
-function spawnEnemy() {
+function spawnEnemy(allowBoss = true) {
     const zone = getCurrentZone(player.x, player.y) || zones[Math.floor(Math.random() * zones.length)] || null;
-    if (zone && !zone.bossActive && Math.random() < zone.bossChance) {
+    if (allowBoss && zone && !zone.bossActive && Math.random() < zone.bossChance) {
         trySpawnZoneBoss(zone);
         return;
     }
@@ -505,6 +546,7 @@ function updateBullets() {
                 if (e.health <= 0) {
                     enemies.splice(j, 1);
                     player.kills++;
+                    roundKillsThisRound++;
                     player.score += e.reward || 150;
                     player.health = clamp(player.health + 8, 0, player.maxHealth);
                     if (e.isBoss) {
@@ -795,7 +837,7 @@ async function init() {
 
     generateBuildings();
     generateEnvironment();
-    for (let i = 0; i < 15; i++) spawnEnemy();
+    startRound();
 
     // Registrar eventos de teclado
     window.addEventListener('keydown', handleKeyDown);
@@ -846,6 +888,8 @@ function gameLoop(time) {
         fpsTimer = 0;
     }
 
+    updateRoundBanner(delta);
+
     if (gameActive) {
         updatePlayer();
         updateBullets();
@@ -853,10 +897,15 @@ function gameLoop(time) {
         if (settings.particles) updateParticles();
         updateExplosions();
 
-        spawnCounter -= delta * 0.06;
-        if (spawnCounter <= 0) {
-            if (enemies.length < CONFIG.MAX_ENEMIES) spawnEnemy();
-            spawnCounter = 900 - player.kills * 8;
+        if (currentRound > 0 && enemies.length === 0 && roundKillsThisRound >= ROUND_ENEMIES && roundTransitionTimer <= 0) {
+            roundTransitionTimer = 1200;
+        }
+
+        if (roundTransitionTimer > 0) {
+            roundTransitionTimer -= delta;
+            if (roundTransitionTimer <= 0) {
+                startRound();
+            }
         }
     }
 
@@ -987,10 +1036,14 @@ document.getElementById('playAgain').addEventListener('click', () => {
     bullets.length = 0;
     particles.length = 0;
     explosions.length = 0;
+    currentRound = 0;
+    roundKillsThisRound = 0;
+    roundTransitionTimer = 0;
+    roundBannerTimer = 0;
     gameActive = true;
     document.getElementById('gameOver').classList.remove('active');
     spawnCounter = 0;
-    requestAnimationFrame(gameLoop);
+    startRound();
 });
 
 window.addEventListener('resize', () => {
