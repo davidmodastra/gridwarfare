@@ -9,7 +9,7 @@ PRESETS = {
     "balanced": {
         "MAP_WIDTH": 4800,
         "MAP_HEIGHT": 3600,
-        "MAX_ENEMIES": 24,
+        "MAX_ENEMIES": 100,
         "BUILDING_COUNT": 72,
         "TREE_COUNT": 260,
         "WATER_COUNT": 10,
