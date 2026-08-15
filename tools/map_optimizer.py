@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "map_config.json"
-
+#📱
 PRESETS = {
     "balanced": {
         "MAP_WIDTH": 4800,

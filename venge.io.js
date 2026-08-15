@@ -50,7 +50,7 @@ let roundBannerTimer = 0;
 let roundTransitionTimer = 0;
 const roundBanner = document.getElementById('roundBanner');
 
-// === CONTROLES TÁCTILES ===
+// === CONTROLES TÁCTILES📱 ===
 let controlMode = 'keyboard';
 const touchControls = document.getElementById('touchControls');
 const joystickContainer = document.querySelector('.joystick-container');
