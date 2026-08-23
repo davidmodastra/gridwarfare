@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>404 | GRIDWARFARE</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            overflow: hidden;
+            background: #050509;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Fondo */
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 45px 45px;
+            animation: gridMove 8s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from {
+                transform: translateY(0);
+            }
+            to {
+                transform: translateY(45px);
+            }
+        }
+
+        /* Viñeta */
+        body::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(
+                circle,
+                transparent 25%,
+                rgba(0,0,0,0.75) 100%
+            );
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            width: min(900px, 90%);
+        }
+
+        .logo {
+            font-size: clamp(20px, 3vw, 32px);
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 35px;
+            opacity: 0.9;
+        }
+
+        .logo span {
+            color: #ff1744;
+        }
+
+        /* 404 */
+        .error {
+            position: relative;
+            font-size: clamp(110px, 25vw, 280px);
+            line-height: 0.8;
+            font-weight: 900;
+            letter-spacing: -15px;
+            color: white;
+
+            text-shadow:
+                8px 8px 0 #ff1744,
+                -8px -8px 0 #00e5ff;
+
+            animation: glitch 2.5s infinite;
+        }
+
+        .error::before,
+        .error::after {
+            content: "404";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .error::before {
+            color: #ff1744;
+            transform: translate(-5px, 2px);
+            clip-path: inset(0 0 55% 0);
+            animation: glitchTop 1.7s infinite linear alternate-reverse;
+        }
+
+        .error::after {
+            color: #00e5ff;
+            transform: translate(5px, -2px);
+            clip-path: inset(55% 0 0 0);
+            animation: glitchBottom 1.3s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch {
+            0%, 90%, 100% {
+                transform: translate(0);
+            }
+            92% {
+                transform: translate(-5px, 3px);
+            }
+            94% {
+                transform: translate(5px, -3px);
+            }
+            96% {
+                transform: translate(-3px, 0);
+            }
+        }
+
+        @keyframes glitchTop {
+            0% {
+                clip-path: inset(10% 0 80% 0);
+            }
+            50% {
+                clip-path: inset(40% 0 40% 0);
+            }
+            100% {
+                clip-path: inset(5% 0 70% 0);
+            }
+        }
+
+        @keyframes glitchBottom {
+            0% {
+                clip-path: inset(70% 0 10% 0);
+            }
+            50% {
+                clip-path: inset(50% 0 25% 0);
+            }
+            100% {
+                clip-path: inset(80% 0 5% 0);
+            }
+        }
+
+        .message {
+            margin-top: 55px;
+        }
+
+        .message h1 {
+            font-size: clamp(20px, 4vw, 34px);
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+        }
+
+        .message p {
+            font-family: Arial, sans-serif;
+            color: #92929b;
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 25px;
+            padding: 10px 18px;
+            border: 1px solid rgba(255,23,68,0.35);
+            background: rgba(255,23,68,0.06);
+            color: #ff5270;
+            font-size: 11px;
+            letter-spacing: 2px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #ff1744;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #ff1744;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            50% {
+                opacity: 0.25;
+                transform: scale(0.6);
+            }
+        }
+
+        .button {
+            display: inline-block;
+            margin-top: 35px;
+            padding: 16px 34px;
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-size: 13px;
+
+            background: #ff1744;
+            border: 1px solid #ff1744;
+
+            box-shadow:
+                0 0 25px rgba(255,23,68,0.35),
+                inset 0 0 15px rgba(255,255,255,0.05);
+
+            transition: 0.25s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-4px);
+            background: #ff3158;
+            box-shadow:
+                0 0 45px rgba(255,23,68,0.65),
+                0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .coordinates {
+            position: fixed;
+            bottom: 20px;
+            left: 25px;
+            color: #44444d;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 3;
+        }
+
+        .coordinates span {
+            color: #ff1744;
+        }
+
+        .corner {
+            position: fixed;
+            width: 35px;
+            height: 35px;
+            border-color: #ff1744;
+            opacity: 0.5;
+            z-index: 3;
+        }
+
+        .corner.tl {
+            top: 25px;
+            left: 25px;
+            border-top: 2px solid;
+            border-left: 2px solid;
+        }
+
+        .corner.tr {
+            top: 25px;
+            right: 25px;
+            border-top: 2px solid;
+            border-right: 2px solid;
+        }
+
+        .corner.bl {
+            bottom: 25px;
+            left: 25px;
+            border-bottom: 2px solid;
+            border-left: 2px solid;
+        }
+
+        .corner.br {
+            bottom: 25px;
+            right: 25px;
+            border-bottom: 2px solid;
+            border-right: 2px solid;
+        }
+
+        @media (max-width: 600px) {
+            .error {
+                letter-spacing: -8px;
+            }
+
+            .message {
+                margin-top: 40px;
+            }
+
+            .logo {
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <main class="container">
+
+        <div class="logo">
+            GRID<span>WARFARE</span>
+        </div>
+
+        <div class="error">404</div>
+
+        <div class="message">
+            <h1>ZONE NOT FOUND</h1>
+
+            <p>
+                Parece que has intentado entrar en una zona
+                que no existe en el mapa.
+            </p>
+
+            <div class="status">
+                <div class="dot"></div>
+                ERROR // TARGET LOCATION INVALID
+            </div>
+
+            <br>
+
+            <a href="/" class="button">
+                ← VOLVER AL JUEGO
+            </a>
+        </div>
+
+    </main>
+
+    <div class="coordinates">
+        GRIDWARFARE // SYSTEM STATUS:
+        <span>404</span>
+    </div>
+
+</body>
+</html>
