@@ -8,8 +8,51 @@ body {
     touch-action: none;
 }
 📱
+.auth-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: radial-gradient(circle at 50% 35%, rgba(12, 75, 76, 0.5), rgba(1, 8, 14, 0.98) 70%);
+    z-index: 100;
+}
+.auth-card {
+    width: min(420px, 100%);
+    padding: 34px;
+    background: rgba(3, 18, 24, 0.96);
+    border: 1px solid rgba(75, 255, 205, 0.7);
+    box-shadow: 0 0 42px rgba(0, 255, 192, 0.2), inset 0 0 30px rgba(0, 255, 192, 0.04);
+    color: #d9ffe5;
+}
+.auth-kicker { margin-bottom: 14px; color: #55ffd0; font: 700 11px 'Courier New', monospace; letter-spacing: 2px; }
+.auth-card h1 { margin-bottom: 8px; color: #f4ffe8; font-size: 28px; letter-spacing: 1px; }
+.auth-card p { color: #a6c8bd; font-size: 13px; }
+.auth-card form { display: grid; gap: 8px; margin-top: 24px; }
+.auth-card label { color: #b8ffd5; font: 700 12px 'Courier New', monospace; }
+.auth-card input { width: 100%; padding: 12px; margin-bottom: 8px; border: 1px solid rgba(0, 255, 170, 0.45); border-radius: 4px; outline: none; background: #06131b; color: #efffe4; font: 15px 'Courier New', monospace; }
+.auth-card input:focus { border-color: #55ffd0; box-shadow: 0 0 12px rgba(85, 255, 208, 0.2); }
+.auth-submit { margin-top: 8px; padding: 13px; border: 0; border-radius: 4px; background: linear-gradient(135deg, #58ffc3, #28a8d5); color: #031615; cursor: pointer; font: 700 13px 'Courier New', monospace; }
+.auth-switch, .auth-logout { display: block; margin: 16px auto 0; border: 0; background: transparent; color: #83d9c0; cursor: pointer; font: 11px 'Courier New', monospace; }
+.auth-logout { margin-top: 10px; color: #ff9b87; }
+.auth-error { min-height: 18px; color: #ff8f82 !important; }
+.hidden { display: none !important; }
 #gameContainer { position: relative; width: 100%; height: 100%; }
-canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
+#gameCanvas, #webglCanvas { display: block; width: 100%; height: 100%; }
+#gameCanvas {
+    position: relative;
+    z-index: 1;
+    background: #0b121f;
+}
+#webglCanvas {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.75;
+    mix-blend-mode: screen;
+}
 #hud {
     position: absolute;
     inset: 0;
@@ -180,6 +223,54 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
     cursor: pointer;
     #gameover h3 { font-size: 18px; margin-bottom: 12px; color: #ff0000; }
 }
+.victory-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: rgba(2, 9, 15, 0.82);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    z-index: 55;
+}
+.victory-screen.active { opacity: 1; pointer-events: auto; }
+.victory-card {
+    position: relative;
+    width: min(520px, calc(100% - 32px));
+    padding: 42px 32px 34px;
+    overflow: hidden;
+    text-align: center;
+    background: linear-gradient(145deg, rgba(7, 36, 39, 0.98), rgba(5, 16, 25, 0.98));
+    border: 1px solid #65ffd0;
+    box-shadow: 0 0 28px rgba(40, 255, 194, 0.3), inset 0 0 38px rgba(40, 255, 194, 0.08);
+    animation: victoryIn 0.65s cubic-bezier(.2,.8,.2,1) both;
+}
+.victory-card h1 {
+    position: relative;
+    margin: 8px 0 14px;
+    color: #f5ffb0;
+    font-size: clamp(42px, 10vw, 76px);
+    letter-spacing: 8px;
+    text-shadow: 0 0 12px #f5ffb0, 0 0 36px rgba(85, 255, 208, 0.8);
+    animation: victoryPulse 1.8s ease-in-out infinite;
+}
+.victory-kicker { position: relative; color: #65ffd0; font: 700 12px 'Courier New', monospace; letter-spacing: 3px; }
+.victory-card p { position: relative; margin: 8px 0; color: #c3ffe3; font: 14px 'Courier New', monospace; }
+.victory-actions { position: relative; display: flex; gap: 12px; margin-top: 26px; }
+.victory-actions button { flex: 1; }
+.victory-rays {
+    position: absolute;
+    inset: -80%;
+    background: repeating-conic-gradient(from 0deg, rgba(101, 255, 208, 0.08) 0deg 8deg, transparent 8deg 20deg);
+    animation: victorySpin 18s linear infinite;
+}
+@keyframes victoryIn { from { opacity: 0; transform: scale(.82) translateY(24px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes victoryPulse { 50% { transform: scale(1.04); } }
+@keyframes victorySpin { to { transform: rotate(360deg); } }
 
 #settingsMenu {
     position: fixed;
@@ -196,14 +287,20 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
 }
 #settingsMenu.active { opacity: 1; pointer-events: auto; }
 .settings-container {
-    width: min(520px, 90%);
+    width: min(820px, 94%);
     background: rgba(5, 20, 18, 0.96);
     border: 2px solid rgba(0,255,170,0.8);
     border-radius: 18px;
     padding: 28px 30px;
     box-shadow: 0 0 45px rgba(0,255,170,0.12);
+    display: grid;
+    grid-template-columns: minmax(250px, 0.9fr) minmax(280px, 1.1fr);
+    column-gap: 28px;
+    max-height: 94vh;
+    overflow-y: auto;
 }
 .settings-container h2 {
+    grid-column: 1 / -1;
     margin-bottom: 22px;
     font-size: 26px;
     color: #eaffc9;
@@ -211,6 +308,7 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
 }
 
 .settings-container h3 {
+    grid-column: 1 / -1;
     margin-bottom: 14px;
     font-size: 18px;
     color: #b8ffd5;
@@ -243,7 +341,32 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
     color: #fff8a8;
     font-size: 13px;
 }
+.settings-group { grid-column: 2; }
+.command-console { grid-column: 1; grid-row: 3 / span 6; align-self: start; margin-top: 0; }
+.command-console p { margin: 8px 0 12px; color: #8eafa5; font: 11px/1.4 'Courier New', monospace; }
+.admin-entry { display: flex; gap: 7px; }
+.admin-entry input { flex: 1; min-width: 0; padding: 10px; border: 1px solid rgba(255, 193, 77, 0.55); border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff1bd; font: 12px 'Courier New', monospace; }
+.admin-entry button, .lock-admin { padding: 10px 12px; border: 0; border-radius: 4px; background: #ffc44d; color: #241900; cursor: pointer; font: 700 11px 'Courier New', monospace; }
+.admin-error { min-height: 18px; margin-top: 8px; color: #ff8f82; font: 11px 'Courier New', monospace; }
+.lock-admin { margin-top: 10px; background: rgba(255,255,255,0.1); color: #ffc0a8; border: 1px solid rgba(255,192,168,0.3); }
+.command-console > label { display: block; margin-bottom: 8px; color: #55ffd0; font: 700 12px 'Courier New', monospace; }
+.command-output {
+    min-height: 62px;
+    max-height: 86px;
+    overflow-y: auto;
+    padding: 9px;
+    border: 1px solid rgba(0,255,170,0.35);
+    background: rgba(0, 0, 0, 0.42);
+    color: #aaffcf;
+    font: 11px/1.5 'Courier New', monospace;
+    white-space: pre-wrap;
+}
+.command-entry { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+.command-entry > span { color: #55ffd0; font: 700 14px 'Courier New', monospace; }
+.command-entry input { flex: 1; min-width: 0; padding: 10px; border: 1px solid rgba(0,255,170,0.6); border-radius: 4px; background: rgba(0,0,0,0.5); color: #ddffd1; font: 12px 'Courier New', monospace; }
+.command-entry button { padding: 10px 12px; border: 0; border-radius: 4px; background: #55ffd0; color: #041b17; cursor: pointer; font: 700 11px 'Courier New', monospace; }
 .button-row {
+    grid-column: 1 / -1;
     display: flex;
     gap: 14px;
     margin-top: 20px;
@@ -266,6 +389,17 @@ canvas { display: block; width: 100%; height: 100%; background: #0b121f; }
     border: 1px solid rgba(255,255,255,0.12);
 }
 .btn-apply:hover, .btn-close:hover { transform: translateY(-1px); }
+@media (max-width: 700px) {
+    .settings-container {
+        display: block;
+        width: min(520px, 94%);
+        padding: 24px 22px;
+    }
+    .settings-group, .command-console, .button-row, .settings-container h2, .settings-container h3 {
+        grid-column: auto;
+    }
+    .command-console { margin-top: 20px; }
+}
 #settingsBtn {
     position: fixed;
     bottom: 22px;

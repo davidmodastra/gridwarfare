@@ -7,8 +7,28 @@
     <link rel="stylesheet" href="venge.io.css">
 </head>
 <body>
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-card">
+            <div class="auth-kicker">GRIDWARFARE // SECURE ACCESS</div>
+            <h1 id="authTitle">IDENTIFY YOURSELF</h1>
+            <p id="authMessage">Sign in to continue your mission.</p>
+            <form id="authForm" novalidate>
+                <label for="authUsername">Username</label>
+                <input id="authUsername" name="username" type="text" minlength="3" maxlength="20" autocomplete="username" required>
+                <label for="authPassword">Password</label>
+                <input id="authPassword" name="password" type="password" minlength="6" autocomplete="current-password" required>
+                <label id="authConfirmLabel" for="authConfirmPassword" class="hidden">Confirm password</label>
+                <input id="authConfirmPassword" name="confirmPassword" type="password" minlength="6" autocomplete="new-password" class="hidden">
+                <button id="authSubmit" class="auth-submit" type="submit">SIGN IN</button>
+                <p id="authError" class="auth-error" role="alert"></p>
+            </form>
+            <button id="authSwitch" class="auth-switch" type="button">NEED AN ACCOUNT? REGISTER</button>
+            <button id="authLogout" class="auth-logout hidden" type="button">FORGET THIS DEVICE</button>
+        </div>
+    </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+        <canvas id="webglCanvas" aria-hidden="true"></canvas>
 
         <!-- CONTROLES TÁCTILES PARA MÓVIL📱 -->
         <div id="touchControls" class="touch-controls">
@@ -69,6 +89,19 @@
             <p id="enemiesKilled">TOTAL KILLS: 0</p>
             <button id="playAgain">PLAY AGAIN</button>
         </div>
+        <div id="victoryScreen" class="victory-screen" aria-hidden="true">
+            <div class="victory-card">
+                <div class="victory-rays"></div>
+                <div class="victory-kicker">MISSION COMPLETE</div>
+                <h1>VICTORY</h1>
+                <p id="victorySummary">ALL 10 ROUNDS CLEARED</p>
+                <p id="victoryScore">FINAL SCORE: 0</p>
+                <div class="victory-actions">
+                    <button id="victoryPlayAgain" class="btn-apply">PLAY AGAIN</button>
+                    <button id="victoryLogout" class="btn-close">LOG OUT</button>
+                </div>
+            </div>
+        </div>
         <div id="settingsMenu" class="settings-overlay">
             <div class="settings-container">
                 <h2>⚙️Settings</h2>
@@ -109,6 +142,27 @@
                 <div class="settings-group">
                     <label for="fullscreen">Fullscreen</label>
                     <input type="checkbox" id="fullscreen">
+                </div>
+                <div id="commandConsole" class="command-console">
+                    <div id="adminLock">
+                        <label for="adminPassword">ADMIN COMMANDS</label>
+                        <p>Enter administrator password to unlock.</p>
+                        <div class="admin-entry">
+                            <input id="adminPassword" type="password" inputmode="numeric" autocomplete="off" placeholder="ADMIN PASSWORD">
+                            <button id="unlockAdmin" type="button">UNLOCK</button>
+                        </div>
+                        <div id="adminError" class="admin-error" role="alert"></div>
+                    </div>
+                    <div id="commandTools" class="command-tools hidden">
+                        <label for="commandInput">COMMAND CONSOLE</label>
+                        <div id="commandOutput" class="command-output" aria-live="polite">Type help to see available commands.</div>
+                        <div class="command-entry">
+                            <span>&gt;</span>
+                            <input id="commandInput" type="text" autocomplete="off" placeholder="help">
+                            <button id="runCommand" type="button">RUN</button>
+                        </div>
+                        <button id="lockAdmin" class="lock-admin" type="button">LOCK CONSOLE</button>
+                    </div>
                 </div>
                 <div class="button-row">
                     <button id="applySettings" class="btn-apply">SAVE</button>

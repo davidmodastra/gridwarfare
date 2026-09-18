@@ -10,6 +10,9 @@
 };
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const webglCanvas = document.getElementById('webglCanvas');
+const webglOptions = { alpha: true, antialias: true, preserveDrawingBuffer: true };
+const webgl = webglCanvas ? (webglCanvas.getContext('webgl2', webglOptions) || webglCanvas.getContext('webgl', webglOptions)) : null;
 const minimapCanvas = document.getElementById('minimap');
 const minimapCtx = minimapCanvas.getContext('2d');
 canvas.width = window.innerWidth;
@@ -21,7 +24,7 @@ let lastTime = performance.now();
 let fps = 0;
 let fpsTimer = 0;
 const keys = {};
-let gameActive = true;
+let gameActive = false;
 const settings = { difficulty: 'normal', sensitivity: 1.0, quality: 'medium', particles: true, fullscreen: false, controlMode: 'keyboard' };
 const player = { x: 0, y: 0, width: 26, height: 26, speed: 6, health: 100, maxHealth: 100, shield: 55, maxShield: 55, ammo: 1800, maxAmmo: 2500, reserve: 90, score: 0, kills: 0, angle: 0, weapon: 'rifle', vx: 0, vy: 0 };
 function resetPlayerPosition() {
@@ -44,11 +47,256 @@ let spawnCounter = 0;
 let crosshair = document.getElementById('crosshair');
 let currentRound = 0;
 const TOTAL_ROUNDS = 10;
-const ROUND_ENEMIES = 16;
+const ROUND_ENEMIES = 18;
 let roundKillsThisRound = 0;
 let roundBannerTimer = 0;
 let roundTransitionTimer = 0;
 const roundBanner = document.getElementById('roundBanner');
+const victoryScreen = document.getElementById('victoryScreen');
+const AUTH_USERS_KEY = 'gridwarfare_users_v1';
+const AUTH_SESSION_KEY = 'gridwarfare_session_v1';
+const ADMIN_PASSWORD = '0996';
+let currentUser = null;
+let profileSaveTimer = 0;
+let adminConsoleUnlocked = false;
+
+const webglBackground = {
+    program: null,
+    positionBuffer: null,
+    timeLocation: null,
+    resolutionLocation: null,
+    startTime: performance.now()
+};
+
+function createWebGLShader(type, source) {
+    if (!webgl) return null;
+    const shader = webgl.createShader(type);
+    webgl.shaderSource(shader, source);
+    webgl.compileShader(shader);
+    if (!webgl.getShaderParameter(shader, webgl.COMPILE_STATUS)) {
+        webgl.deleteShader(shader);
+        return null;
+    }
+    return shader;
+}
+
+function initWebGLBackground() {
+    if (!webgl) return;
+    const vertexSource = 'attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }';
+    const fragmentSource = `precision mediump float;
+uniform float time;
+uniform vec2 resolution;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    vec2 centered = uv * 2.0 - 1.0;
+    centered.x *= resolution.x / resolution.y;
+    float distanceFromCenter = length(centered);
+    float gridX = smoothstep(0.94, 0.98, abs(sin(centered.x * 18.0 + time * 0.12)));
+    float gridY = smoothstep(0.94, 0.98, abs(sin(centered.y * 18.0 - time * 0.08)));
+    float scanline = 0.5 + 0.5 * sin((uv.y + time * 0.018) * 220.0);
+    float glow = max(0.0, 1.0 - distanceFromCenter * 0.7);
+    vec3 color = vec3(0.02, 0.34, 0.30) * (gridX * 0.18 + gridY * 0.12);
+    color += vec3(0.02, 0.12, 0.2) * glow;
+    color += vec3(0.1, 0.9, 0.7) * scanline * 0.025;
+    float alpha = (0.08 + gridX * 0.13 + gridY * 0.10 + glow * 0.06) * smoothstep(1.35, 0.25, distanceFromCenter);
+    gl_FragColor = vec4(color, alpha);
+}`;
+    const vertexShader = createWebGLShader(webgl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = createWebGLShader(webgl.FRAGMENT_SHADER, fragmentSource);
+    if (!vertexShader || !fragmentShader) return;
+    webglBackground.program = webgl.createProgram();
+    webgl.attachShader(webglBackground.program, vertexShader);
+    webgl.attachShader(webglBackground.program, fragmentShader);
+    webgl.linkProgram(webglBackground.program);
+    if (!webgl.getProgramParameter(webglBackground.program, webgl.LINK_STATUS)) {
+        webglBackground.program = null;
+        return;
+    }
+    webglBackground.positionBuffer = webgl.createBuffer();
+    webgl.bindBuffer(webgl.ARRAY_BUFFER, webglBackground.positionBuffer);
+    webgl.bufferData(webgl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), webgl.STATIC_DRAW);
+    webglBackground.timeLocation = webgl.getUniformLocation(webglBackground.program, 'time');
+    webglBackground.resolutionLocation = webgl.getUniformLocation(webglBackground.program, 'resolution');
+}
+
+function resizeWebGLBackground() {
+    if (!webgl || !webglCanvas) return;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    webglCanvas.width = Math.floor(window.innerWidth * pixelRatio);
+    webglCanvas.height = Math.floor(window.innerHeight * pixelRatio);
+    webglCanvas.style.width = `${window.innerWidth}px`;
+    webglCanvas.style.height = `${window.innerHeight}px`;
+    webgl.viewport(0, 0, webglCanvas.width, webglCanvas.height);
+}
+
+function drawWebGLBackground(time) {
+    if (!webgl || !webglBackground.program) return;
+    webgl.useProgram(webglBackground.program);
+    webgl.bindBuffer(webgl.ARRAY_BUFFER, webglBackground.positionBuffer);
+    const positionLocation = webgl.getAttribLocation(webglBackground.program, 'position');
+    webgl.enableVertexAttribArray(positionLocation);
+    webgl.vertexAttribPointer(positionLocation, 2, webgl.FLOAT, false, 0, 0);
+    webgl.uniform1f(webglBackground.timeLocation, (time - webglBackground.startTime) * 0.001);
+    webgl.uniform2f(webglBackground.resolutionLocation, webglCanvas.width, webglCanvas.height);
+    webgl.clearColor(0, 0, 0, 0);
+    webgl.clear(webgl.COLOR_BUFFER_BIT);
+    webgl.disable(webgl.DEPTH_TEST);
+    webgl.enable(webgl.BLEND);
+    webgl.blendFunc(webgl.SRC_ALPHA, webgl.ONE_MINUS_SRC_ALPHA);
+    webgl.drawArrays(webgl.TRIANGLES, 0, 6);
+}
+
+initWebGLBackground();
+resizeWebGLBackground();
+
+function readUsers() {
+    try { return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '{}'); } catch (error) { return {}; }
+}
+
+function writeUsers(users) {
+    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+}
+
+async function hashPassword(password) {
+    if (!window.crypto || !window.crypto.subtle) return btoa(unescape(encodeURIComponent(password)));
+    const data = new TextEncoder().encode(password);
+    const digest = await window.crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function setRememberedSession(username) {
+    localStorage.setItem(AUTH_SESSION_KEY, username);
+    document.cookie = `gridwarfare_session=${encodeURIComponent(username)}; max-age=2592000; path=/; SameSite=Lax`;
+}
+
+function clearRememberedSession() {
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    document.cookie = 'gridwarfare_session=; max-age=0; path=/; SameSite=Lax';
+}
+
+function getRememberedSession() {
+    const cookie = document.cookie.split('; ').find(value => value.startsWith('gridwarfare_session='));
+    return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : localStorage.getItem(AUTH_SESSION_KEY);
+}
+
+function saveCurrentProfile(won = false) {
+    if (!currentUser) return;
+    const users = readUsers();
+    if (!users[currentUser.username]) return;
+    const previousStats = users[currentUser.username].stats || {};
+    users[currentUser.username].stats = {
+        ...previousStats,
+        kills: player.kills,
+        score: player.score,
+        highScore: Math.max(users[currentUser.username].stats?.highScore || 0, player.score),
+        round: currentRound,
+        wins: (previousStats.wins || 0) + (won ? 1 : 0),
+        lastPlayed: new Date().toISOString()
+    };
+    writeUsers(users);
+}
+
+function scheduleProfileSave() {
+    if (!currentUser || profileSaveTimer) return;
+    profileSaveTimer = window.setTimeout(() => {
+        profileSaveTimer = 0;
+        saveCurrentProfile();
+    }, 1000);
+}
+
+function showAuthMode(registering) {
+    const title = document.getElementById('authTitle');
+    const message = document.getElementById('authMessage');
+    const submit = document.getElementById('authSubmit');
+    const switchButton = document.getElementById('authSwitch');
+    const confirmLabel = document.getElementById('authConfirmLabel');
+    const confirmInput = document.getElementById('authConfirmPassword');
+    title.textContent = registering ? 'CREATE PROFILE' : 'IDENTIFY YOURSELF';
+    message.textContent = registering ? 'Create a local profile for this device.' : 'Sign in to continue your mission.';
+    submit.textContent = registering ? 'REGISTER' : 'SIGN IN';
+    switchButton.textContent = registering ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : 'NEED AN ACCOUNT? REGISTER';
+    confirmLabel.classList.toggle('hidden', !registering);
+    confirmInput.classList.toggle('hidden', !registering);
+    confirmInput.required = registering;
+    document.getElementById('authError').textContent = '';
+    document.getElementById('authPassword').autocomplete = registering ? 'new-password' : 'current-password';
+    document.getElementById('authForm').dataset.mode = registering ? 'register' : 'login';
+}
+
+function unlockGame(user) {
+    currentUser = user;
+    const users = readUsers();
+    const stats = users[user.username]?.stats || {};
+    player.score = stats.score || 0;
+    player.kills = stats.kills || 0;
+    document.getElementById('authScreen').classList.add('hidden');
+    setRememberedSession(user.username);
+}
+
+async function handleAuthSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const username = document.getElementById('authUsername').value.trim().toLowerCase();
+    const password = document.getElementById('authPassword').value;
+    const confirmPassword = document.getElementById('authConfirmPassword').value;
+    const error = document.getElementById('authError');
+    const users = readUsers();
+    error.textContent = '';
+    if (!/^[a-z0-9_-]{3,20}$/.test(username)) {
+        error.textContent = 'Username: 3-20 letters, numbers, _ or -.';
+        return;
+    }
+    if (password.length < 6) {
+        error.textContent = 'Password must contain at least 6 characters.';
+        return;
+    }
+    if (form.dataset.mode === 'register') {
+        if (users[username]) {
+            error.textContent = 'That username already exists on this device.';
+            return;
+        }
+        if (password !== confirmPassword) {
+            error.textContent = 'Passwords do not match.';
+            return;
+        }
+        users[username] = { passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), stats: { kills: 0, score: 0, highScore: 0, wins: 0 } };
+        writeUsers(users);
+    } else {
+        if (!users[username] || users[username].passwordHash !== await hashPassword(password)) {
+            error.textContent = 'Incorrect username or password.';
+            return;
+        }
+    }
+    unlockGame({ username });
+    if (!gameStarted) startGame();
+}
+
+let gameStarted = false;
+function startGame() {
+    gameStarted = true;
+    init();
+}
+
+async function initAuth() {
+    showAuthMode(false);
+    document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+    document.getElementById('authSwitch').addEventListener('click', () => {
+        showAuthMode(document.getElementById('authForm').dataset.mode !== 'register');
+    });
+    document.getElementById('authLogout').addEventListener('click', () => {
+        clearRememberedSession();
+        currentUser = null;
+        document.getElementById('authScreen').classList.remove('hidden');
+        showAuthMode(false);
+    });
+    const rememberedUsername = getRememberedSession();
+    const users = readUsers();
+    if (rememberedUsername && users[rememberedUsername]) {
+        unlockGame({ username: rememberedUsername });
+        return true;
+    }
+    return false;
+}
 
 // === CONTROLES TÁCTILES📱 ===
 let controlMode = 'keyboard';
@@ -152,7 +400,7 @@ function updateRoundBanner(delta) {
 
 function startRound() {
     if (currentRound >= TOTAL_ROUNDS) {
-        showRoundBanner('VICTORY!', 3000);
+        showVictory();
         gameActive = false;
         return;
     }
@@ -167,6 +415,54 @@ function startRound() {
     showRoundBanner(`ROUND ${currentRound}`, 1400);
     for (let i = 0; i < ROUND_ENEMIES; i++) spawnEnemy(false);
     gameActive = true;
+}
+
+function showVictory() {
+    gameActive = false;
+    saveCurrentProfile(true);
+    document.getElementById('victoryScore').textContent = `FINAL SCORE: ${player.score}`;
+    document.getElementById('victorySummary').textContent = `ALL ${TOTAL_ROUNDS} ROUNDS CLEARED // ${player.kills} KILLS`;
+    victoryScreen.classList.add('active');
+    victoryScreen.setAttribute('aria-hidden', 'false');
+}
+
+function hideVictory() {
+    victoryScreen.classList.remove('active');
+    victoryScreen.setAttribute('aria-hidden', 'true');
+}
+
+function resetMatch() {
+    resetPlayerPosition();
+    player.health = 100;
+    player.shield = 55;
+    player.ammo = 1800;
+    player.reserve = 90;
+    player.score = 0;
+    player.kills = 0;
+    player.weapon = 'rifle';
+    enemies.length = 0;
+    bullets.length = 0;
+    particles.length = 0;
+    explosions.length = 0;
+    currentRound = 0;
+    roundKillsThisRound = 0;
+    roundTransitionTimer = 0;
+    roundBannerTimer = 0;
+    hideVictory();
+    document.getElementById('gameOver').classList.remove('active');
+    startRound();
+}
+
+function logoutFromGame() {
+    saveCurrentProfile();
+    clearRememberedSession();
+    currentUser = null;
+    gameActive = false;
+    hideVictory();
+    document.getElementById('gameOver').classList.remove('active');
+    document.getElementById('authScreen').classList.remove('hidden');
+    showAuthMode(false);
+    document.getElementById('authForm').reset();
 }
 
 // Inicializar joystick
@@ -760,10 +1056,12 @@ function updateHUD() {
     document.getElementById('healthFill').style.width = `${(player.health / player.maxHealth) * 100}%`;
     document.getElementById('shieldFill').style.width = `${(player.shield / player.maxShield) * 100}%`;
     document.getElementById('healthText').textContent = `${Math.max(0, Math.round(player.health))} / ${player.maxHealth}`;
+    scheduleProfileSave();
 }
 
 function endGame() {
     gameActive = false;
+    saveCurrentProfile();
     document.getElementById('gameOver').classList.add('active');
     document.getElementById('finalScore').textContent = `FINAL SCORE: ${player.score}`;
     document.getElementById('enemiesKilled').textContent = `TOTAL KILLS: ${player.kills}`;
@@ -819,6 +1117,83 @@ function cycleWeapon() {
     const index = order.indexOf(player.weapon);
     const next = order[(index + 1) % order.length];
     switchWeapon(next);
+}
+
+function printCommand(message) {
+    const output = document.getElementById('commandOutput');
+    if (!output) return;
+    output.textContent = `${output.textContent}\n> ${message}`.trim().slice(-700);
+    output.scrollTop = output.scrollHeight;
+}
+
+function runCommand(rawCommand) {
+    const parts = rawCommand.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const command = parts[0];
+    const amount = clamp(Number.parseInt(parts[1], 10) || 1, 1, 1000);
+    if (!command) return;
+
+    if (command === 'help') {
+        printCommand('help | score 1000 | kills 5 | spawn 10 | killall | heal | shield | round 3');
+    } else if (command === 'score') {
+        player.score += amount;
+        printCommand(`Added ${amount} score.`);
+    } else if (command === 'kills') {
+        player.kills += amount;
+        roundKillsThisRound += amount;
+        printCommand(`Added ${amount} kills.`);
+    } else if (command === 'spawn') {
+        const count = Math.min(amount, 100);
+        for (let index = 0; index < count; index++) spawnEnemy(false);
+        printCommand(`Spawned ${count} enemies.`);
+    } else if (command === 'killall') {
+        const defeated = enemies.length;
+        for (const enemy of enemies) {
+            if (enemy.isBoss) {
+                const bossZone = zones.find(zone => zone.name === enemy.zoneName);
+                if (bossZone) bossZone.bossActive = false;
+            }
+        }
+        enemies.length = 0;
+        roundKillsThisRound += defeated;
+        player.kills += defeated;
+        player.score += defeated * 150;
+        printCommand(`Removed ${defeated} enemies.`);
+    } else if (command === 'heal') {
+        player.health = player.maxHealth;
+        printCommand('Health restored.');
+    } else if (command === 'shield') {
+        player.shield = player.maxShield;
+        printCommand('Shield restored.');
+    } else if (command === 'round') {
+        const targetRound = clamp(amount, 1, TOTAL_ROUNDS);
+        currentRound = targetRound - 1;
+        enemies.length = 0;
+        roundKillsThisRound = ROUND_ENEMIES;
+        roundTransitionTimer = 1;
+        gameActive = true;
+        printCommand(`Next round set to ${targetRound}.`);
+    } else {
+        printCommand(`Unknown command: ${command}. Type help.`);
+    }
+    updateHUD();
+}
+
+function setAdminConsoleUnlocked(unlocked) {
+    adminConsoleUnlocked = unlocked;
+    document.getElementById('adminLock').classList.toggle('hidden', unlocked);
+    document.getElementById('commandTools').classList.toggle('hidden', !unlocked);
+    document.getElementById('adminPassword').value = '';
+    document.getElementById('adminError').textContent = '';
+    if (unlocked) document.getElementById('commandInput').focus();
+}
+
+function unlockAdminConsole() {
+    const password = document.getElementById('adminPassword').value;
+    if (password !== ADMIN_PASSWORD) {
+        document.getElementById('adminError').textContent = 'Incorrect administrator password.';
+        return;
+    }
+    setAdminConsoleUnlocked(true);
 }
 
 // MODIFICADA: init con inicialización de controles táctiles
@@ -889,6 +1264,7 @@ function gameLoop(time) {
     }
 
     updateRoundBanner(delta);
+    drawWebGLBackground(time);
 
     if (gameActive) {
         updatePlayer();
@@ -1023,36 +1399,39 @@ document.getElementById('fullscreen').addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('playAgain').addEventListener('click', () => {
-    resetPlayerPosition();
-    player.health = 100;
-    player.shield = 55;
-    player.ammo = 1800;
-    player.reserve = 90;
-    player.score = 0;
-    player.kills = 0;
-    player.weapon = 'rifle';
-    enemies.length = 0;
-    bullets.length = 0;
-    particles.length = 0;
-    explosions.length = 0;
-    currentRound = 0;
-    roundKillsThisRound = 0;
-    roundTransitionTimer = 0;
-    roundBannerTimer = 0;
-    gameActive = true;
-    document.getElementById('gameOver').classList.remove('active');
-    spawnCounter = 0;
-    startRound();
+const commandInput = document.getElementById('commandInput');
+const submitCommand = () => {
+    runCommand(commandInput.value);
+    commandInput.value = '';
+    commandInput.focus();
+};
+document.getElementById('runCommand').addEventListener('click', submitCommand);
+commandInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') submitCommand();
 });
+document.getElementById('unlockAdmin').addEventListener('click', unlockAdminConsole);
+document.getElementById('adminPassword').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') unlockAdminConsole();
+});
+document.getElementById('lockAdmin').addEventListener('click', () => setAdminConsoleUnlocked(false));
+
+document.getElementById('playAgain').addEventListener('click', () => {
+    resetMatch();
+});
+
+document.getElementById('victoryPlayAgain').addEventListener('click', resetMatch);
+document.getElementById('victoryLogout').addEventListener('click', logoutFromGame);
 
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    resizeWebGLBackground();
     minimapCanvas.width = 160;
     minimapCanvas.height = 160;
     setTimeout(initJoystick, 100);
 });
 
-// Iniciar el juego
-init();
+// Iniciar solo después de autenticar al jugador
+initAuth().then(authenticated => {
+    if (authenticated) startGame();
+});
