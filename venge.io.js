@@ -56,9 +56,13 @@ const victoryScreen = document.getElementById('victoryScreen');
 const AUTH_USERS_KEY = 'gridwarfare_users_v1';
 const AUTH_SESSION_KEY = 'gridwarfare_session_v1';
 const ADMIN_PASSWORD = '0996';
+const ADMIN_USERNAME = 'lootlagoon';
 let currentUser = null;
 let profileSaveTimer = 0;
 let adminConsoleUnlocked = false;
+let aimAssistEnabled = false;
+let vitaStressEnabled = false;
+let godModeEnabled = false;
 
 const webglBackground = {
     program: null,
@@ -457,6 +461,9 @@ function logoutFromGame() {
     saveCurrentProfile();
     clearRememberedSession();
     currentUser = null;
+    aimAssistEnabled = false;
+    godModeEnabled = false;
+    setAdminConsoleUnlocked(false);
     gameActive = false;
     hideVictory();
     document.getElementById('gameOver').classList.remove('active');
@@ -656,7 +663,7 @@ class Enemy {
         this.x += this.vx; this.y += this.vy;
         this.x = clamp(this.x, this.w / 2, CONFIG.MAP_WIDTH - this.w / 2);
         this.y = clamp(this.y, this.h / 2, CONFIG.MAP_HEIGHT - this.h / 2);
-        if (distance < 40 && this.shootCooldown <= 0) {
+        if (distance < 40 && this.shootCooldown <= 0 && !godModeEnabled) {
             player.health -= this.damage * 0.3;
             this.shootCooldown = 50;
         }
@@ -780,6 +787,48 @@ function fireWeapon() {
             '#ffb663', 16, 2
         ));
     }
+}
+
+function updateAimAssist() {
+    if (!aimAssistEnabled || enemies.length === 0) return;
+    let nearestEnemy = null;
+    let nearestDistance = Infinity;
+    for (const enemy of enemies) {
+        const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestEnemy = enemy;
+        }
+    }
+    if (nearestEnemy) {
+        player.angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
+    }
+}
+
+function runVitaStressTest() {
+    vitaStressEnabled = true;
+    const stressParticles = 2400;
+    const stressEnemies = Math.min(CONFIG.MAX_ENEMIES, 100);
+    for (let index = 0; index < stressParticles; index++) {
+        particles.push(new Particle(
+            player.x + randRange(-900, 900),
+            player.y + randRange(-700, 700),
+            randRange(-2.5, 2.5),
+            randRange(-2.5, 2.5),
+            index % 2 === 0 ? '#55ffd0' : '#ffda65',
+            180,
+            randRange(1, 4)
+        ));
+    }
+    while (enemies.length < stressEnemies) spawnEnemy(false);
+    printCommand(`VITA stress test active: ${stressParticles} particles and ${stressEnemies} enemies.`);
+}
+
+function stopVitaStressTest() {
+    vitaStressEnabled = false;
+    particles.length = 0;
+    while (enemies.length > ROUND_ENEMIES) enemies.pop();
+    printCommand('VITA stress test stopped and extra load cleared.');
 }
 
 // MODIFICADA: updatePlayer con soporte para controles táctiles
@@ -1133,7 +1182,7 @@ function runCommand(rawCommand) {
     if (!command) return;
 
     if (command === 'help') {
-        printCommand('help | score 1000 | kills 5 | spawn 10 | killall | heal | shield | round 3');
+        printCommand('help | score 1000 | kills 5 | spawn 10 | killall | heal | shield | round 3 | fullam | vita | vita off | dios');
     } else if (command === 'score') {
         player.score += amount;
         printCommand(`Added ${amount} score.`);
@@ -1172,6 +1221,19 @@ function runCommand(rawCommand) {
         roundTransitionTimer = 1;
         gameActive = true;
         printCommand(`Next round set to ${targetRound}.`);
+    } else if (command === 'fullam') {
+        aimAssistEnabled = !aimAssistEnabled;
+        printCommand(`Aim assist ${aimAssistEnabled ? 'enabled' : 'disabled'}.`);
+    } else if (command === 'vita') {
+        if (parts[1] === 'off') stopVitaStressTest();
+        else runVitaStressTest();
+    } else if (command === 'dios') {
+        godModeEnabled = !godModeEnabled;
+        if (godModeEnabled) {
+            player.health = player.maxHealth;
+            player.shield = player.maxShield;
+        }
+        printCommand(`God mode ${godModeEnabled ? 'enabled' : 'disabled'}.`);
     } else {
         printCommand(`Unknown command: ${command}. Type help.`);
     }
@@ -1189,6 +1251,10 @@ function setAdminConsoleUnlocked(unlocked) {
 
 function unlockAdminConsole() {
     const password = document.getElementById('adminPassword').value;
+    if (!currentUser || currentUser.username.toLowerCase() !== ADMIN_USERNAME) {
+        document.getElementById('adminError').textContent = 'Only lootlagoon can access admin commands.';
+        return;
+    }
     if (password !== ADMIN_PASSWORD) {
         document.getElementById('adminError').textContent = 'Incorrect administrator password.';
         return;
@@ -1267,6 +1333,7 @@ function gameLoop(time) {
     drawWebGLBackground(time);
 
     if (gameActive) {
+        updateAimAssist();
         updatePlayer();
         updateBullets();
         updateEnemies();
@@ -1366,6 +1433,8 @@ if (cycleWeaponButton) {
 // === EVENT LISTENERS PARA CONFIGURACIÓN ===
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', closeSettings);
+const settingsLogout = document.getElementById('settingsLogout');
+if (settingsLogout) settingsLogout.addEventListener('click', logoutFromGame);
 
 document.getElementById('applySettings').addEventListener('click', () => {
     settings.fullscreen = document.getElementById('fullscreen').checked;

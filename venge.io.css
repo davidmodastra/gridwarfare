@@ -388,7 +388,17 @@ body {
     color: #c9ffcf;
     border: 1px solid rgba(255,255,255,0.12);
 }
-.btn-apply:hover, .btn-close:hover { transform: translateY(-1px); }
+.btn-logout {
+    flex: 1;
+    padding: 12px 0;
+    border: 1px solid rgba(255, 130, 112, 0.45);
+    border-radius: 12px;
+    background: rgba(120, 28, 35, 0.32);
+    color: #ffb2a3;
+    cursor: pointer;
+    font-weight: 700;
+}
+.btn-apply:hover, .btn-close:hover, .btn-logout:hover { transform: translateY(-1px); }
 @media (max-width: 700px) {
     .settings-container {
         display: block;
