@@ -15,17 +15,29 @@ const webglOptions = { alpha: true, antialias: true, preserveDrawingBuffer: true
 const webgl = webglCanvas ? (webglCanvas.getContext('webgl2', webglOptions) || webglCanvas.getContext('webgl', webglOptions)) : null;
 const minimapCanvas = document.getElementById('minimap');
 const minimapCtx = minimapCanvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+let canvasViewWidth = window.innerWidth;
+let canvasViewHeight = window.innerHeight;
+canvas.width = canvasViewWidth;
+canvas.height = canvasViewHeight;
 minimapCanvas.width = 160;
 minimapCanvas.height = 160;
 let frameCount = 0;
 let lastTime = performance.now();
 let fps = 0;
 let fpsTimer = 0;
+let minimapRefreshTimer = 200;
 const keys = {};
 let gameActive = false;
 const settings = { difficulty: 'normal', sensitivity: 1.0, quality: 'medium', particles: true, fullscreen: false, controlMode: 'keyboard' };
+function resizeGameCanvas() {
+    canvasViewWidth = window.innerWidth;
+    canvasViewHeight = window.innerHeight;
+    const renderScale = settings.quality === 'potato' ? 0.5 : 1;
+    canvas.width = Math.max(1, Math.round(canvasViewWidth * renderScale));
+    canvas.height = Math.max(1, Math.round(canvasViewHeight * renderScale));
+    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+}
+resizeGameCanvas();
 const player = { x: 0, y: 0, width: 26, height: 26, speed: 6, health: 100, maxHealth: 100, shield: 55, maxShield: 55, ammo: 1800, maxAmmo: 2500, reserve: 90, score: 0, kills: 0, angle: 0, weapon: 'rifle', vx: 0, vy: 0 };
 function resetPlayerPosition() {
     player.x = CONFIG.MAP_WIDTH / 2;
@@ -125,7 +137,7 @@ void main() {
 
 function resizeWebGLBackground() {
     if (!webgl || !webglCanvas) return;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = settings.quality === 'potato' ? 0.5 : Math.min(window.devicePixelRatio || 1, 2);
     webglCanvas.width = Math.floor(window.innerWidth * pixelRatio);
     webglCanvas.height = Math.floor(window.innerHeight * pixelRatio);
     webglCanvas.style.width = `${window.innerWidth}px`;
@@ -134,7 +146,7 @@ function resizeWebGLBackground() {
 }
 
 function drawWebGLBackground(time) {
-    if (!webgl || !webglBackground.program) return;
+    if (settings.quality === 'potato' || !webgl || !webglBackground.program) return;
     webgl.useProgram(webglBackground.program);
     webgl.bindBuffer(webgl.ARRAY_BUFFER, webglBackground.positionBuffer);
     const positionLocation = webgl.getAttribLocation(webglBackground.program, 'position');
@@ -381,10 +393,11 @@ function applyZoneEffects(zone = getCurrentZone()) {
     }
 }
 function isOnScreen(x, y, width = 0, height = 0, cameraX, cameraY, margin = CONFIG.DRAW_MARGIN) {
-    const sx = x - cameraX + canvas.width / 2;
-    const sy = y - cameraY + canvas.height / 2;
-    return sx + width / 2 + margin >= 0 && sx - width / 2 - margin <= canvas.width &&
-           sy + height / 2 + margin >= 0 && sy - height / 2 - margin <= canvas.height;
+    if (settings.quality === 'potato') margin = Math.min(margin, 32);
+    const sx = x - cameraX + canvasViewWidth / 2;
+    const sy = y - cameraY + canvasViewHeight / 2;
+    return sx + width / 2 + margin >= 0 && sx - width / 2 - margin <= canvasViewWidth &&
+           sy + height / 2 + margin >= 0 && sy - height / 2 - margin <= canvasViewHeight;
 }
 
 function showRoundBanner(text, duration = 1400) {
@@ -570,8 +583,8 @@ class Particle {
         const alpha = clamp(this.life / this.maxLife, 0, 1);
         cx.globalAlpha = alpha;
         cx.fillStyle = this.color;
-        const sx = this.x - cameraX + canvas.width / 2;
-        const sy = this.y - cameraY + canvas.height / 2;
+        const sx = this.x - cameraX + canvasViewWidth / 2;
+        const sy = this.y - cameraY + canvasViewHeight / 2;
         cx.fillRect(sx - this.size / 2, sy - this.size / 2, this.size, this.size);
         cx.globalAlpha = 1;
     }
@@ -583,8 +596,8 @@ class Explosion {
     }
     draw(cx, cameraX, cameraY) {
         const amount = 1 - this.life / this.total;
-        const sx = this.x - cameraX + canvas.width / 2;
-        const sy = this.y - cameraY + canvas.height / 2;
+        const sx = this.x - cameraX + canvasViewWidth / 2;
+        const sy = this.y - cameraY + canvasViewHeight / 2;
         cx.save();
         cx.globalAlpha = clamp(0.18 + amount * 0.7, 0, 1);
         cx.beginPath();
@@ -606,9 +619,20 @@ class Building {
         this.health = 100; this.maxHealth = 100;
     }
     draw(cx, cameraX, cameraY) {
-        const sx = this.x - cameraX + canvas.width / 2;
-        const sy = this.y - cameraY + canvas.height / 2;
-        if (sx + this.w / 2 < 0 || sx - this.w / 2 > canvas.width || sy + this.h / 2 < 0 || sy - this.h / 2 > canvas.height) return;
+        const sx = this.x - cameraX + canvasViewWidth / 2;
+        const sy = this.y - cameraY + canvasViewHeight / 2;
+        if (sx + this.w / 2 < 0 || sx - this.w / 2 > canvasViewWidth || sy + this.h / 2 < 0 || sy - this.h / 2 > canvasViewHeight) return;
+        if (settings.quality === 'potato') {
+            cx.fillStyle = this.color;
+            cx.fillRect(sx - this.w / 2, sy - this.h / 2, this.w, this.h);
+            if (this.health < this.maxHealth) {
+                cx.fillStyle = '#222222';
+                cx.fillRect(sx - this.w / 2, sy - this.h / 2 - 10, this.w, 4);
+                cx.fillStyle = '#0cf78b';
+                cx.fillRect(sx - this.w / 2, sy - this.h / 2 - 10, (this.health / this.maxHealth) * this.w, 4);
+            }
+            return;
+        }
         cx.fillStyle = 'rgba(12, 16, 18, 0.98)';
         cx.fillRect(sx - this.w / 2 + 8, sy - this.h / 2 + 8, this.w, this.h);
         cx.fillStyle = this.color;
@@ -670,11 +694,16 @@ class Enemy {
         this.shootCooldown--;
     }
     draw(cx, cameraX, cameraY) {
-        const sx = this.x - cameraX + canvas.width / 2;
-        const sy = this.y - cameraY + canvas.height / 2;
-        if (sx + this.w / 2 < 0 || sx - this.w / 2 > canvas.width || sy + this.h / 2 < 0 || sy - this.h / 2 > canvas.height) return;
+        const sx = this.x - cameraX + canvasViewWidth / 2;
+        const sy = this.y - cameraY + canvasViewHeight / 2;
+        if (sx + this.w / 2 < 0 || sx - this.w / 2 > canvasViewWidth || sy + this.h / 2 < 0 || sy - this.h / 2 > canvasViewHeight) return;
         cx.fillStyle = this.color;
         cx.fillRect(sx - this.w / 2, sy - this.h / 2, this.w, this.h);
+        if (settings.quality === 'potato') {
+            cx.fillStyle = '#f4f4f4';
+            cx.fillRect(sx - 10, sy - this.h / 2 - 6, (this.health / this.maxHealth) * 20, 3);
+            return;
+        }
         if (this.isBoss) {
             cx.fillStyle = '#ffd166';
             cx.fillRect(sx - this.w / 2 - 6, sy - this.h / 2 - 8, this.w + 12, 5);
@@ -779,13 +808,15 @@ function fireWeapon() {
         });
     }
     player.ammo--;
-    for (let i = 0; i < 8; i++) {
-        particles.push(new Particle(
-            player.x, player.y,
-            Math.cos(player.angle + randRange(-0.5,0.5)) * randRange(2,4),
-            Math.sin(player.angle + randRange(-0.5,0.5)) * randRange(2,4),
-            '#ffb663', 16, 2
-        ));
+    if (settings.particles && settings.quality !== 'potato') {
+        for (let i = 0; i < 8; i++) {
+            particles.push(new Particle(
+                player.x, player.y,
+                Math.cos(player.angle + randRange(-0.5,0.5)) * randRange(2,4),
+                Math.sin(player.angle + randRange(-0.5,0.5)) * randRange(2,4),
+                '#ffb663', 16, 2
+            ));
+        }
     }
 }
 
@@ -884,7 +915,7 @@ function updateBullets() {
             if (b.x > e.x - e.w / 2 && b.x < e.x + e.w / 2 && b.y > e.y - e.h / 2 && b.y < e.y + e.h / 2) {
                 e.health -= b.damage;
                 bullets.splice(i, 1);
-                if (Math.random() < 0.5) {
+                if (settings.particles && settings.quality !== 'potato' && Math.random() < 0.5) {
                     for (let p = 0; p < 6; p++)
                         particles.push(new Particle(b.x, b.y, randRange(-1.6,1.6), randRange(-1.6,1.6), '#ffb56b', 18, 2));
                 }
@@ -898,7 +929,7 @@ function updateBullets() {
                         const bossZone = zones.find(zone => zone.name === e.zoneName);
                         if (bossZone) bossZone.bossActive = false;
                     }
-                    explosions.push(new Explosion(e.x, e.y, e.isBoss ? 1.5 : 1.1));
+                    if (settings.quality !== 'potato') explosions.push(new Explosion(e.x, e.y, e.isBoss ? 1.5 : 1.1));
                 }
                 break;
             }
@@ -929,13 +960,18 @@ function updateExplosions() {
 }
 
 function drawMap(cameraX, cameraY) {
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#0d1b29');
-    gradient.addColorStop(1, '#081014');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const potatoMode = settings.quality === 'potato';
+    if (potatoMode) {
+        ctx.fillStyle = '#081014';
+    } else {
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvasViewHeight);
+        gradient.addColorStop(0, '#0d1b29');
+        gradient.addColorStop(1, '#081014');
+        ctx.fillStyle = gradient;
+    }
+    ctx.fillRect(0, 0, canvasViewWidth, canvasViewHeight);
     ctx.save();
-    ctx.translate(canvas.width / 2 - cameraX, canvas.height / 2 - cameraY);
+    ctx.translate(canvasViewWidth / 2 - cameraX, canvasViewHeight / 2 - cameraY);
     ctx.fillStyle = '#112a18';
     ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
 
@@ -961,12 +997,12 @@ function drawMap(cameraX, cameraY) {
         ctx.fillRect(road.x, road.y, road.w, road.h);
         ctx.strokeStyle = '#94ffb3';
         ctx.lineWidth = 2;
-        if (road.horizontal) {
+        if (!potatoMode && road.horizontal) {
             const y = road.y + road.h / 2;
             for (let x = 0; x < CONFIG.MAP_WIDTH; x += 36) {
                 ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 18, y); ctx.stroke();
             }
-        } else {
+        } else if (!potatoMode) {
             const x = road.x + road.w / 2;
             for (let y = 0; y < CONFIG.MAP_HEIGHT; y += 36) {
                 ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 18); ctx.stroke();
@@ -980,9 +1016,11 @@ function drawMap(cameraX, cameraY) {
         ctx.beginPath();
         ctx.ellipse(lake.x, lake.y, lake.w, lake.h, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(160, 220, 255, 0.5)';
-        ctx.lineWidth = 4;
-        ctx.stroke();
+        if (!potatoMode) {
+            ctx.strokeStyle = 'rgba(160, 220, 255, 0.5)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
     }
 
     for (const tree of trees) {
@@ -991,6 +1029,7 @@ function drawMap(cameraX, cameraY) {
         ctx.beginPath();
         ctx.arc(tree.x, tree.y, tree.size, 0, Math.PI * 2);
         ctx.fill();
+        if (potatoMode) continue;
         ctx.fillStyle = '#122309';
         ctx.beginPath();
         ctx.arc(tree.x, tree.y + tree.size * 0.2, tree.size * 0.42, 0, Math.PI * 2);
@@ -1002,13 +1041,15 @@ function drawMap(cameraX, cameraY) {
     }
 
     ctx.restore();
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    for (let x = (canvas.width / 2 - cameraX) % 80; x < canvas.width; x += 80) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    }
-    for (let y = (canvas.height / 2 - cameraY) % 80; y < canvas.height; y += 80) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    if (!potatoMode) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let x = (canvasViewWidth / 2 - cameraX) % 80; x < canvasViewWidth; x += 80) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvasViewHeight); ctx.stroke();
+        }
+        for (let y = (canvasViewHeight / 2 - cameraY) % 80; y < canvasViewHeight; y += 80) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasViewWidth, y); ctx.stroke();
+        }
     }
 }
 
@@ -1028,8 +1069,8 @@ function drawEnemies(cameraX, cameraY) {
 
 function drawBullets(cameraX, cameraY) {
     for (const bullet of bullets) {
-        const sx = bullet.x - cameraX + canvas.width / 2;
-        const sy = bullet.y - cameraY + canvas.height / 2;
+        const sx = bullet.x - cameraX + canvasViewWidth / 2;
+        const sy = bullet.y - cameraY + canvasViewHeight / 2;
         ctx.fillStyle = '#ffe868';
         ctx.beginPath();
         ctx.arc(sx, sy, 4, 0, Math.PI * 2);
@@ -1040,8 +1081,8 @@ function drawBullets(cameraX, cameraY) {
 }
 
 function drawPlayer(cameraX, cameraY) {
-    const sx = player.x - cameraX + canvas.width / 2;
-    const sy = player.y - cameraY + canvas.height / 2;
+    const sx = player.x - cameraX + canvasViewWidth / 2;
+    const sy = player.y - cameraY + canvasViewHeight / 2;
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(player.angle);
@@ -1123,6 +1164,9 @@ function loadSettings() {
     try {
         const saved = JSON.parse(raw);
         Object.assign(settings, saved);
+        if (!['potato', 'low', 'medium', 'high'].includes(settings.quality)) {
+            settings.quality = 'medium';
+        }
         if (!['keyboard', 'touch'].includes(settings.controlMode)) {
             settings.controlMode = 'keyboard';
         }
@@ -1337,7 +1381,7 @@ function gameLoop(time) {
         updatePlayer();
         updateBullets();
         updateEnemies();
-        if (settings.particles) updateParticles();
+        if (settings.particles && settings.quality !== 'potato') updateParticles();
         updateExplosions();
 
         if (currentRound > 0 && enemies.length === 0 && roundKillsThisRound >= ROUND_ENEMIES && roundTransitionTimer <= 0) {
@@ -1358,18 +1402,26 @@ function gameLoop(time) {
     drawMap(cameraX, cameraY);
     drawBuildings(cameraX, cameraY);
 
-    if (settings.quality !== 'low') {
+    if (settings.quality !== 'low' && settings.quality !== 'potato') {
         for (const explosion of explosions) explosion.draw(ctx, cameraX, cameraY);
     }
 
-    if (settings.particles) {
+    if (settings.particles && settings.quality !== 'potato') {
         for (const particle of particles) particle.draw(ctx, cameraX, cameraY);
     }
 
     drawEnemies(cameraX, cameraY);
     drawBullets(cameraX, cameraY);
     drawPlayer(cameraX, cameraY);
-    drawMinimap(cameraX, cameraY);
+    if (settings.quality === 'potato') {
+        minimapRefreshTimer += delta;
+        if (minimapRefreshTimer >= 200) {
+            drawMinimap(cameraX, cameraY);
+            minimapRefreshTimer = 0;
+        }
+    } else {
+        drawMinimap(cameraX, cameraY);
+    }
     updateHUD();
 
     requestAnimationFrame(gameLoop);
@@ -1378,8 +1430,8 @@ function gameLoop(time) {
 // === EVENT LISTENERS PARA MOVIMIENTO DEL RATÓN (solo en modo teclado) ===
 window.addEventListener('mousemove', (e) => {
     if (controlMode === 'touch') return;
-    const mouseX = (e.clientX - canvas.width / 2) * settings.sensitivity;
-    const mouseY = (e.clientY - canvas.height / 2) * settings.sensitivity;
+    const mouseX = (e.clientX - canvasViewWidth / 2) * settings.sensitivity;
+    const mouseY = (e.clientY - canvasViewHeight / 2) * settings.sensitivity;
     player.angle = Math.atan2(mouseY, mouseX);
     crosshair.style.left = `${e.clientX}px`;
     crosshair.style.top = `${e.clientY}px`;
@@ -1459,7 +1511,11 @@ document.getElementById('sensitivity').addEventListener('input', (e) => {
     settings.sensitivity = parseFloat(e.target.value);
     document.getElementById('sensitivityValue').textContent = `${settings.sensitivity.toFixed(1)}x`;
 });
-document.getElementById('quality').addEventListener('change', (e) => settings.quality = e.target.value);
+document.getElementById('quality').addEventListener('change', (e) => {
+    settings.quality = e.target.value;
+    resizeGameCanvas();
+    resizeWebGLBackground();
+});
 document.getElementById('particles').addEventListener('change', (e) => settings.particles = e.target.checked);
 document.getElementById('fullscreen').addEventListener('change', (e) => {
     settings.fullscreen = e.target.checked;
@@ -1492,8 +1548,7 @@ document.getElementById('victoryPlayAgain').addEventListener('click', resetMatch
 document.getElementById('victoryLogout').addEventListener('click', logoutFromGame);
 
 window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    resizeGameCanvas();
     resizeWebGLBackground();
     minimapCanvas.width = 160;
     minimapCanvas.height = 160;
