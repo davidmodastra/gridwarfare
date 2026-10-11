@@ -34,4 +34,3 @@ Próximamente:
 - ⚙️ Menú de configuración.
 - 📂 Configuración y datos del juego mediante archivos JSON.
 - 🐍 Scripts en Python para optimización, automatización y herramientas internas del proyecto.
-- modos de calidad multiplesS
