@@ -368,13 +368,16 @@ body {
 .button-row {
     grid-column: 1 / -1;
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 14px;
     margin-top: 20px;
 }
-.btn-apply, .btn-close {
+.btn-apply, .btn-close, .btn-reset, .btn-clear {
     flex: 1;
     border: none;
-    padding: 12px 0;
+    min-width: 120px;
+    padding: 12px;
     border-radius: 12px;
     cursor: pointer;
     font-weight: 700;
@@ -390,6 +393,7 @@ body {
 }
 .btn-logout {
     flex: 1;
+    min-width: 120px;
     padding: 12px 0;
     border: 1px solid rgba(255, 130, 112, 0.45);
     border-radius: 12px;
@@ -398,7 +402,29 @@ body {
     cursor: pointer;
     font-weight: 700;
 }
-.btn-apply:hover, .btn-close:hover, .btn-logout:hover { transform: translateY(-1px); }
+.btn-reset {
+    border: 1px solid rgba(255, 196, 92, 0.5);
+    background: rgba(126, 79, 16, 0.3);
+    color: #ffd88a;
+}
+.btn-clear {
+    border: 1px solid rgba(255, 106, 106, 0.55);
+    background: rgba(120, 28, 35, 0.4);
+    color: #ffaaa5;
+}
+.btn-apply:hover, .btn-close:hover, .btn-logout:hover, .btn-reset:hover, .btn-clear:hover {
+    transform: translateY(-1px);
+}
+.btn-apply:focus-visible, .btn-close:focus-visible, .btn-logout:focus-visible, .btn-reset:focus-visible, .btn-clear:focus-visible {
+    outline: 2px solid #55ffd0;
+    outline-offset: 2px;
+}
+.version-info {
+    flex: 1 1 100%;
+    color: rgba(201, 255, 207, 0.65);
+    font: 11px 'Courier New', monospace;
+    text-align: right;
+}
 @media (max-width: 700px) {
     .settings-container {
         display: block;
@@ -409,6 +435,9 @@ body {
         grid-column: auto;
     }
     .command-console { margin-top: 20px; }
+    .button-row { gap: 10px; }
+    .button-row > button { flex: 1 1 calc(50% - 10px); }
+    .version-info { order: 1; }
 }
 #settingsBtn {
     position: fixed;

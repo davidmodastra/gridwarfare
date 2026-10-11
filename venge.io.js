@@ -1487,6 +1487,29 @@ document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', closeSettings);
 const settingsLogout = document.getElementById('settingsLogout');
 if (settingsLogout) settingsLogout.addEventListener('click', logoutFromGame);
+document.getElementById('resetSettings').addEventListener('click', () => {
+    resetMatch();
+    saveCurrentProfile();
+    closeSettings();
+});
+document.getElementById('clearStorage').addEventListener('click', () => {
+    player.kills = 0;
+    player.score = 0;
+    if (currentUser) {
+        const users = readUsers();
+        const user = users[currentUser.username];
+        if (user) {
+            user.stats = {
+                ...user.stats,
+                kills: 0,
+                score: 0,
+                highScore: 0
+            };
+            writeUsers(users);
+        }
+    }
+    updateHUD();
+});
 
 document.getElementById('applySettings').addEventListener('click', () => {
     settings.fullscreen = document.getElementById('fullscreen').checked;
